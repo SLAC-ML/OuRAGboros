@@ -1,4 +1,4 @@
-# Winter 2025 Stanford ICME Research Rotation [PI: Eric Darve]
+# Winter 2025 Stanford ICME Research Rotation
 
 ## Getting Started
 
