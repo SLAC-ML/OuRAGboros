@@ -10,11 +10,17 @@ Then, start Ollama with
 $ ollama start
 ```
 
-Then, pull the latest `llama3` model and run this application with `uv`:
+Then, run this application with `uv`:
 
 ```sh
-$ ollama pull llama3
 $ uv run streamlit run src/main.py
 ```
 
-...and then navigate to http://localhost:8501 in your favorite browser to get started.
+...and navigate to http://localhost:8501 in your favorite browser to get started.
+
+This project uses `deepseek-r1` by default, but any other model can be used by simply 
+running `ollama pull <model name>`. The newly pulled model will be available to select
+in a drop-down on the webpage above. Alternatively, you can set the `OLLAMA_MODEL` 
+environment variable to [any supported Ollama model name](https://ollama.com/search) to
+use that model by default. If the model is not found locally, it will be pulled when a 
+user prompt has been given.

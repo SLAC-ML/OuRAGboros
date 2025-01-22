@@ -10,6 +10,7 @@ dependencies = [
     "langchain-ollama>=0.2.2",
     "langchain-unstructured>=0.1.5",
     "nltk==3.8.1",
+    "ollama>=0.4.6",
     "pandas>=2.2.3",
     "streamlit>=1.41.1",
     "unstructured[all-docs,local-inference]>=0.14.0",

@@ -17,6 +17,20 @@ default_root_doc_path = (
 desired_file_extension = '.md'
 document_search_glob = f'*{desired_file_extension}'
 
+
+def perform_document_retrieval(
+        doc_path: str,
+        query: str,
+        k=3,
+        score_threshold: float = 0.2
+):
+    vector_store = langchain_impl.vectorize_md_docs(doc_path)
+    return [
+        d for d in vector_store.similarity_search_with_score(query, k=k)
+        if d[1] >= score_threshold
+    ]
+
+
 root_doc_path = st.text_input(
     label='Root document path:',
     help='This folder that will be recursively indexed for RAG-based search.',
@@ -37,12 +51,6 @@ st.header(f'Indexable Files [{mimetypes.types_map[desired_file_extension]}]', he
 st.text('These files will be indexed for RAG generation.')
 st.dataframe(doc_df, use_container_width=True)
 
-rag_query = st.text_input(
-    label='Enter a RAG search query:',
-    value='',
-    key='rag_query',
-)
-
 query_result_score_inf = st.number_input(
     'Set the document match score threshold:',
     value=0.4,
@@ -50,18 +58,29 @@ query_result_score_inf = st.number_input(
     max_value=1.0,
 )
 
+llm_model = st.selectbox(
+    'Select an LLM Model:',
+    langchain_impl.get_models(),
+    index=0,
+)
 
-def perform_document_retrieval(k=3, score_threshold: float = 0.2):
-    vector_store = langchain_impl.vectorize_md_docs(root_doc_path)
-    return [
-        d for d in vector_store.similarity_search_with_score(rag_query, k=k)
-        if d[1] >= score_threshold
-    ]
+rag_query = st.text_input(
+    label='Enter a RAG search query:',
+    value='',
+    key='rag_query',
+)
 
+if rag_query and llm_model and query_result_score_inf:
+    with st.spinner('Pulling model...'):
+        langchain_impl.pull_model(llm_model)
 
-if rag_query:
     st.text('Performing document search...')
-    matches = perform_document_retrieval(k=3, score_threshold=query_result_score_inf)
+    matches = perform_document_retrieval(
+        root_doc_path,
+        rag_query,
+        k=3,
+        score_threshold=query_result_score_inf
+    )
 
     if not len(matches):
         raise ValueError(
