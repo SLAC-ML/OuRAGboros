@@ -22,9 +22,10 @@ def perform_document_retrieval(
         doc_path: str,
         query: str,
         k=3,
-        score_threshold: float = 0.2
+        score_threshold: float = 0.2,
+        model:str=None
 ):
-    vector_store = langchain_impl.vectorize_md_docs(doc_path)
+    vector_store = langchain_impl.vectorize_md_docs(doc_path, ollama_model=model)
     return [
         d for d in vector_store.similarity_search_with_score(query, k=k)
         if d[1] >= score_threshold
@@ -58,8 +59,13 @@ query_result_score_inf = st.number_input(
     max_value=1.0,
 )
 
+embeddings_model = st.selectbox(
+    'Select an embedding model:',
+    langchain_impl.get_models(),
+    index=0,
+)
 llm_model = st.selectbox(
-    'Select an LLM Model:',
+    'Select an LLM model:',
     langchain_impl.get_models(),
     index=0,
 )
@@ -79,7 +85,8 @@ if rag_query and llm_model and query_result_score_inf:
         root_doc_path,
         rag_query,
         k=3,
-        score_threshold=query_result_score_inf
+        score_threshold=query_result_score_inf,
+        model=embeddings_model
     )
 
     if not len(matches):
@@ -87,14 +94,19 @@ if rag_query and llm_model and query_result_score_inf:
             'No document matches found. Try a new query, or lower the score threshold.'
         )
     else:
-        st.text(f'Found {len(matches)} matches.')
+        st.text(f'Found {len(matches)} match{'es' if len(matches) else ''}.')
 
     st.text('Getting LLM response...')
 
     context = '\n'.join([
         doc.page_content for doc, score in matches
     ])
-    st.write(langchain_impl.ask_llm(rag_query, context))
+    # st.write(langchain_impl.ask_llm(rag_query, context, ollama_model=llm_model))
+    st.code(
+        langchain_impl.ask_llm(rag_query, context, ollama_model=llm_model),
+        language=None,
+        wrap_lines=True,
+    )
 
     st.divider()
     n_doc_matches = len(matches)
