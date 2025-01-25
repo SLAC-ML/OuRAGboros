@@ -1,15 +1,20 @@
 import os
 from pathlib import Path
-import mimetypes
 
 import streamlit as st
 import pandas as pd
 
-import langchain_impl
+import lib.langchain_impl as langchain_impl
+import lib.nav as nav
 
-st.set_page_config(layout='wide', page_title='OuRAGbourous')
-st.title(':snake: LangChain OuRAGborous :snake:')
-st.session_state.retrieved_docs = []
+st.set_page_config(
+    page_title='OuRAGbourous',
+    page_icon=':snake:',
+    layout='wide',
+)
+nav.pages()
+
+st.title(':snake: LangChain OuRAGborous')
 
 default_root_doc_path = (
     '/work/jonathan/stanford/stanford-academics/StanfordNotes/Research/SLAC LLM (Darve Winter 2025)'
@@ -52,7 +57,7 @@ st.text('Found the following documents:')
 st.dataframe(doc_df, use_container_width=True)
 
 with st.sidebar:
-    st.title('Configuration')
+    st.header('Search Configuration')
     embeddings_model = st.selectbox(
         'Select an embedding model:',
         langchain_impl.get_models(),
@@ -70,7 +75,7 @@ with st.sidebar:
         max_value=1.0,
     )
 
-rag_query = st.chat_input('Enter a RAG search query:')
+rag_query = st.chat_input('Enter a search query')
 
 if rag_query and llm_model and query_result_score_inf:
     with st.chat_message('user'):

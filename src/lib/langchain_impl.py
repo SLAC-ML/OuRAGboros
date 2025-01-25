@@ -12,7 +12,7 @@ from langchain_community.vectorstores import (
 from langchain_ollama import OllamaEmbeddings, OllamaLLM
 from ollama import Client
 
-from config import default_model, default_prompt, opensearch_url
+from lib.config import default_model, default_prompt, opensearch_url
 
 
 def get_models():
