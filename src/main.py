@@ -23,7 +23,7 @@ def perform_document_retrieval(
         query: str,
         k=3,
         score_threshold: float = 0.2,
-        model:str=None
+        model: str = None
 ):
     vector_store = langchain_impl.vectorize_md_docs(doc_path, ollama_model=model)
     return [
@@ -34,7 +34,7 @@ def perform_document_retrieval(
 
 root_doc_path = st.text_input(
     label='Root document path:',
-    help='This folder that will be recursively indexed for RAG-based search.',
+    help='This folder that will be recursively indexed for search.',
     value=default_root_doc_path,
 )
 
@@ -48,81 +48,72 @@ doc_df = pd.DataFrame([
      ) for doc in docs
 ], columns=['Name', 'Size [bytes]'])
 
-st.header(f'Indexable Files [{mimetypes.types_map[desired_file_extension]}]', help='')
-st.text('These files will be indexed for RAG generation.')
+st.text('Found the following documents:')
 st.dataframe(doc_df, use_container_width=True)
 
-query_result_score_inf = st.number_input(
-    'Set the document match score threshold:',
-    value=0.4,
-    min_value=0.0,
-    max_value=1.0,
-)
+with st.sidebar:
+    st.title('Configuration')
+    embeddings_model = st.selectbox(
+        'Select an embedding model:',
+        langchain_impl.get_models(),
+        index=0,
+    )
+    llm_model = st.selectbox(
+        'Select an LLM model:',
+        langchain_impl.get_models(),
+        index=0,
+    )
+    query_result_score_inf = st.slider(
+        'Set the document match score threshold:',
+        value=0.4,
+        min_value=0.0,
+        max_value=1.0,
+    )
 
-embeddings_model = st.selectbox(
-    'Select an embedding model:',
-    langchain_impl.get_models(),
-    index=0,
-)
-llm_model = st.selectbox(
-    'Select an LLM model:',
-    langchain_impl.get_models(),
-    index=0,
-)
-
-rag_query = st.text_input(
-    label='Enter a RAG search query:',
-    value='',
-    key='rag_query',
-)
+rag_query = st.chat_input('Enter a RAG search query:')
 
 if rag_query and llm_model and query_result_score_inf:
+    with st.chat_message('user'):
+        st.text(rag_query)
+
     with st.spinner('Pulling model...'):
         langchain_impl.pull_model(llm_model)
 
-    st.text('Performing document search...')
-    matches = perform_document_retrieval(
-        root_doc_path,
-        rag_query,
-        k=3,
-        score_threshold=query_result_score_inf,
-        model=embeddings_model
-    )
-
-    if not len(matches):
-        raise ValueError(
-            'No document matches found. Try a new query, or lower the score threshold.'
+    with st.chat_message('ai'):
+        st.text('Searching for relevant documentation...')
+        matches = perform_document_retrieval(
+            root_doc_path,
+            rag_query,
+            k=3,
+            score_threshold=query_result_score_inf,
+            model=embeddings_model
         )
-    else:
-        st.text(f'Found {len(matches)} match{'es' if len(matches) else ''}.')
 
-    st.text('Getting LLM response...')
+        singular_match = len(matches) == 1
+        if len(matches):
+            st.text(f'Found {len(matches)} match{'' if singular_match else 'es'}. '
+                    f'Generating LLM response.')
 
-    context = '\n'.join([
-        doc.page_content for doc, score in matches
-    ])
-    # st.write(langchain_impl.ask_llm(rag_query, context, ollama_model=llm_model))
-    st.code(
-        langchain_impl.ask_llm(rag_query, context, ollama_model=llm_model),
-        language=None,
-        wrap_lines=True,
-    )
+            context = '\n'.join([
+                doc.page_content for doc, score in matches
+            ])
 
-    st.divider()
-    n_doc_matches = len(matches)
-    if n_doc_matches:
-        if n_doc_matches == 1:
-            st.text('Top document match:')
+            st.write_stream(
+                langchain_impl.ask_llm(rag_query, context, ollama_model=llm_model),
+            )
+
+            with st.expander(f'Source document{'' if singular_match else 's'}'):
+                for i, (doc, score) in enumerate(matches):
+                    if i:
+                        st.divider()
+                    st.subheader(Path(doc.metadata['source']).name)
+                    st.markdown(f'**File Path:** {doc.metadata['source']}')
+                    st.markdown(f'**Score:** {score}')
+
+                    st.markdown('#### File Contents:')
+                    st.code(doc.page_content, language=None, line_numbers=True,
+                            wrap_lines=True)
         else:
-            st.text(f'Top {n_doc_matches} document matches:')
-
-        for doc, score in matches:
-            st.subheader(Path(doc.metadata['source']).name)
-            st.markdown(f'**File Path:** {doc.metadata['source']}')
-            st.markdown(f'**Score:** {score}')
-
-            st.markdown('#### File Contents:')
-            st.code(doc.page_content, language=None, line_numbers=True, wrap_lines=True)
-            st.divider()
-    else:
-        st.warning('No document matches found.')
+            st.warning(
+                'No document matches found. Try a new query, or lower the score threshold.'
+            )
