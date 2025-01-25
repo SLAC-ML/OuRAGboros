@@ -114,10 +114,20 @@ if rag_query and llm_model and query_result_score_inf:
                     st.subheader(Path(doc.metadata['source']).name)
                     st.markdown(f'**File Path:** {doc.metadata['source']}')
                     st.markdown(f'**Score:** {score}')
+                    st.download_button(
+                        label='Download as text',
+                        data=doc.page_content,
+                        file_name=Path(doc.metadata['source']).name,
+                        mime='text/plain',
+                    )
 
                     st.markdown('#### File Contents:')
-                    st.code(doc.page_content, language=None, line_numbers=True,
-                            wrap_lines=True)
+                    st.code(
+                        f'{doc.page_content[-100]}...',
+                        language=None,
+                        line_numbers=True,
+                        wrap_lines=True,
+                    )
         else:
             st.warning(
                 'No document matches found. Try a new query, or lower the score threshold.'
