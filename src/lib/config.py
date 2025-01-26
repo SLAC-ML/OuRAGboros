@@ -52,9 +52,9 @@ opensearch_index_settings = {
             },
             # Vector search
             #
-            'embedding': {
+            'vector_field': {
                 'type': 'knn_vector',
-                'dimension': 1536,
+                'dimension': 768,
                 'space_type': 'l2',
                 # See https://opensearch.org/docs/latest/search-plugins/knn/knn-index#method-definitions
                 #

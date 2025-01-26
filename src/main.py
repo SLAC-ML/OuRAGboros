@@ -15,8 +15,6 @@ nav.pages()
 
 st.title(':snake: LangChain OuRAGborous')
 
-# st.write(st.session_state)
-
 # Initialize session state
 #
 if 'documents' not in st.session_state:
@@ -25,46 +23,77 @@ if 'search_query' not in st.session_state:
     st.session_state.search_query = ''
 if 'llm_response' not in st.session_state:
     st.session_state.llm_response = ''
-if 'root_doc_path' not in st.session_state:
-    st.session_state.root_doc_path = config.default_root_doc_path
+
 
 def perform_document_retrieval(
-        doc_path: str,
         query: str,
         k=3,
         score_threshold: float = 0.2,
-        model: str = None
+        model: str = config.default_model,
+        use_opensearch_vectorstore: bool = False,
 ):
-    vector_store = langchain_impl.vectorize_md_docs(doc_path, embedding_model=model)
-    return [
-        d for d in vector_store.similarity_search_with_score(query, k=k)
-        if d[1] >= score_threshold
-    ]
+    """
+    Retrieves a list of Document objects that correspond to the provided search query.
+    :param query:
+    :param k:
+    :param score_threshold:
+    :param model:
+    :param use_opensearch_vectorstore:
+    :return:
+    """
+    if use_opensearch_vectorstore:
+        import langchain_community.vectorstores.opensearch_vector_search as os_vs
+        return langchain_impl.opensearch_doc_vector_store(embedding_model).similarity_search_with_score(
+            query=query,
+            k=k,
+            score_threshold=score_threshold,
+            search_type=os_vs.SCRIPT_SCORING_SEARCH,
+            # See: https://opensearch.org/docs/latest/search-plugins/knn/knn-score-script/#spaces
+            space_type='cosinesimil'
+        )
+    else:
+        # Uses cosine similarity by default.
+        # See: https://python.langchain.com/api_reference/core/vectorstores/langchain_core.vectorstores.in_memory.InMemoryVectorStore.html#langchain_core.vectorstores.in_memory.InMemoryVectorStore
+        #
+        vector_store = langchain_impl.markdown_doc_vector_store(
+            config.default_root_doc_path,
+            embedding_model=model,
+        )
+        return [
+            d for d in vector_store.similarity_search_with_score(query, k=k)
+            if d[1] >= score_threshold
+        ]
 
 
 with st.sidebar:
     st.header('Search Configuration')
-    embeddings_model = st.selectbox(
+    use_opensearch = st.toggle(
+        'Use OpenSearch',
+        help=f'Requires an OpenSearch instance running at {config.opensearch_url}.'
+    )
+    embedding_model = st.selectbox(
         'Select an embedding model:',
-        langchain_impl.get_embedding_models(),
+        langchain_impl.get_available_embeddings(),
         index=0,
     )
     llm_model = st.selectbox(
         'Select an LLM model:',
-        langchain_impl.get_llm_models(),
+        langchain_impl.get_available_llms(),
         index=0,
     )
     query_result_score_inf = st.slider(
         'Set the document match score threshold:',
-        value=0.3,
-        min_value=0.01,
-        max_value=1.0,
+        value=0.4,
+        min_value=0.0,
+        max_value=2.0,
+        help='Score is computed using cosine similarity.'
     )
 
 search_query = st.chat_input('Enter a search query')
 
+
 @st.fragment
-def _render_source_docs(docs):
+def _render_source_docs(docs, opensearch_metadata: bool = False):
     """
     Renders source documents used to generate LLM context.
 
@@ -78,22 +107,23 @@ def _render_source_docs(docs):
         if i:
             st.divider()
         st.subheader(Path(doc.metadata['source']).name)
-        st.markdown(f'**File Path:** {doc.metadata['source']}')
-        st.markdown(f'**Score:** {score}')
         st.download_button(
             label='Download as text',
             data=doc.page_content,
             file_name=Path(doc.metadata['source']).name,
             mime='text/plain',
         )
-
-        st.markdown('#### File Contents:')
-        st.code(
-            f'{doc.page_content[:-100]}...(download file to see more)',
+        st.markdown(f'**Score:** {score}')
+        st.markdown('**File Contents:**')
+        st.code('{}{}'.format(
+            doc.page_content[:-100],
+            ' ...[download file to see more]' if len(doc.page_content) > 100 else ''
+        ),
             language=None,
             line_numbers=True,
             wrap_lines=True,
         )
+
 
 # Save search query if a new one was provided
 #
@@ -102,7 +132,7 @@ if search_query:
 
 # Main page content
 #
-if st.session_state.search_query and llm_model and query_result_score_inf:
+if st.session_state.search_query and llm_model:
     with st.chat_message('user'):
         st.text(st.session_state.search_query)
 
@@ -110,20 +140,20 @@ if st.session_state.search_query and llm_model and query_result_score_inf:
         langchain_impl.pull_model(llm_model)
 
     with st.chat_message('ai'):
-        st.text('Searching for relevant documentation...')
+        st.text('Searching knowledge base for relevant documentation...')
 
         matches = perform_document_retrieval(
-            st.session_state.root_doc_path,
             st.session_state.search_query,
             k=3,
             score_threshold=query_result_score_inf,
-            model=embeddings_model
+            model=embedding_model,
+            use_opensearch_vectorstore=use_opensearch,
         )
         st.session_state.documents = matches
 
         singular_match = len(st.session_state.documents) == 1
         if len(st.session_state.documents):
-            st.text('Found {} match{}. '.format(
+            st.text('Found {} document match{}. '.format(
                 len(st.session_state.documents),
                 '' if singular_match else 'es'
             ))
@@ -140,7 +170,7 @@ if st.session_state.search_query and llm_model and query_result_score_inf:
             st.write_stream(st.session_state.llm_response)
 
             with st.expander(f'Source document{'' if singular_match else 's'}'):
-                _render_source_docs(st.session_state.documents)
+                _render_source_docs(st.session_state.documents, use_opensearch)
         else:
             st.warning(
                 'No document matches found. Try a new query, or lower the score threshold.'

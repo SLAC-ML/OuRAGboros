@@ -1,34 +1,32 @@
 from io import StringIO
 import hashlib
+import time
 
-from opensearchpy import OpenSearch
+import opensearchpy.exceptions
 import streamlit as st
-from langchain_community.vectorstores import (
-    OpenSearchVectorSearch
-)
+from opensearchpy import OpenSearch
 
 import lib.config as config
 import lib.nav as nav
 import lib.langchain_impl as langchain_impl
-from lib.langchain_impl import get_embedding
 
 st.set_page_config(
-    page_title='Document Uploader',
+    page_title='OpenSearch Document Upload',
     page_icon=':page_facing_up:',
     layout='wide',
 )
 nav.pages()
 
-st.title(':page_facing_up: Document Upload')
+st.title(':page_facing_up: OpenSearch Document Upload')
 
 desired_file_extension = '.md'
 document_search_glob = f'*{desired_file_extension}'
 
 with st.sidebar:
     st.header('Search Configuration')
-    embeddings_model = st.selectbox(
+    embedding_model = st.selectbox(
         'Select an embedding model:',
-        langchain_impl.get_embedding_models(),
+        langchain_impl.get_available_embeddings(),
         index=0,
     )
 
@@ -43,38 +41,38 @@ uploaded_files = st.file_uploader(
 if len(uploaded_files) and st.button('Upload Files'):
     # Create OpenSearch index if it doesn't already exist
     #
-    st.text('Ensuring OpenSearch index existence...')
-    opensearch_client = OpenSearch([
-        config.opensearch_url
-    ])
-    opensearch_client.indices.create(
-        index=config.opensearch_index,
-        body=config.opensearch_index_settings,
-        ignore=400
-    )
+    try:
+        st.text('Ensuring OpenSearch index existence...')
+        opensearch_client = OpenSearch([
+            config.opensearch_url
+        ])
+        opensearch_client.indices.create(
+            index=config.opensearch_index,
+            body=config.opensearch_index_settings,
+        )
+    except opensearchpy.exceptions.RequestError as e:
+        if e.status_code != 400:
+            raise e
 
-    embeddings = get_embedding(embeddings_model)
-    vector_search = OpenSearchVectorSearch(
-        index_name=config.opensearch_index,
-        opensearch_url=config.opensearch_url,
-        embedding_function=embeddings,
-    )
+    vector_store = langchain_impl.opensearch_doc_vector_store(embedding_model)
+
     for uploaded_file in uploaded_files:
         st.text(f'Uploading {uploaded_file.name}...')
         file_content = StringIO(uploaded_file.getvalue().decode('utf-8')).read()
         file_sha1 = hashlib.sha1(uploaded_file.getbuffer()).hexdigest()
-        vector_search.add_texts(
+        vector_store.add_texts(
             texts=[
                 file_content
             ],
             metadatas=[
                 {
-                    'file_name': uploaded_file.name,
-                    'file_size': uploaded_file.size,
-                    'embedding_model': embeddings_model,
+                    'embedding_model': embedding_model,
                     'sha1': file_sha1,
+                    'size': uploaded_file.size,
+                    'source': uploaded_file.name,
+                    'uploaded': int(time.time())
                 }
             ],
-            ids=[f'{file_sha1}_{embeddings_model}']
+            ids=[f'{file_sha1}_{embedding_model}']
         )
     st.write('Done!')
