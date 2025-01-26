@@ -43,12 +43,14 @@ def perform_document_retrieval(
     """
     if use_opensearch_vectorstore:
         import langchain_community.vectorstores.opensearch_vector_search as os_vs
-        return langchain_impl.opensearch_doc_vector_store(embedding_model).similarity_search_with_score(
+        return langchain_impl.opensearch_doc_vector_store(
+            embedding_model).similarity_search_with_score(
             query=query,
             k=k,
             score_threshold=score_threshold,
             search_type=os_vs.SCRIPT_SCORING_SEARCH,
             # See: https://opensearch.org/docs/latest/search-plugins/knn/knn-score-script/#spaces
+            #
             space_type='cosinesimil'
         )
     else:
@@ -59,9 +61,10 @@ def perform_document_retrieval(
             config.default_root_doc_path,
             embedding_model=model,
         )
+        # We add 1 to the score to keep formatting consistent with OpenSearch
         return [
-            d for d in vector_store.similarity_search_with_score(query, k=k)
-            if d[1] >= score_threshold
+            (d, s + 1) for (d, s) in vector_store.similarity_search_with_score(query, k=k)
+            if s + 1 >= score_threshold
         ]
 
 
@@ -83,10 +86,11 @@ with st.sidebar:
     )
     query_result_score_inf = st.slider(
         'Set the document match score threshold:',
-        value=0.4,
+        value=1.0,
         min_value=0.0,
         max_value=2.0,
-        help='Score is computed using cosine similarity.'
+        help='Score is computed using cosine similarity plus 1 to ensure a non-negative '
+             'score.'
     )
 
 search_query = st.chat_input('Enter a search query')
