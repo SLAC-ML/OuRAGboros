@@ -114,10 +114,10 @@ def _render_source_docs(docs, opensearch_metadata: bool = False):
             mime='text/plain',
         )
         st.markdown(f'**Score:** {score}')
-        st.markdown('**File Contents:**')
+        st.markdown('**Document Text:**')
         st.code('{}{}'.format(
             doc.page_content[:-100],
-            ' ...[download file to see more]' if len(doc.page_content) > 100 else ''
+            '... [download file to see more]' if len(doc.page_content) > 100 else ''
         ),
             language=None,
             line_numbers=True,
