@@ -4,7 +4,7 @@ from langchain_core.vectorstores import VectorStore
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_community.document_loaders import (
     DirectoryLoader,
-    UnstructuredMarkdownLoader,
+    TextLoader,
 )
 from langchain_community.vectorstores import (
     OpenSearchVectorSearch
@@ -90,7 +90,7 @@ def vectorize_md_docs(
     loader = DirectoryLoader(
         root_path,
         glob='**/*.md',
-        loader_cls=UnstructuredMarkdownLoader,
+        loader_cls=TextLoader,
     )
     documents = loader.load()
 

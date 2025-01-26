@@ -56,7 +56,7 @@ with st.sidebar:
     )
     query_result_score_inf = st.slider(
         'Set the document match score threshold:',
-        value=0.1,
+        value=0.3,
         min_value=0.01,
         max_value=1.0,
     )
