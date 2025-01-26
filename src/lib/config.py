@@ -13,3 +13,12 @@ Context: {}"""
 # Vectorstore configuration
 #
 opensearch_url = os.getenv('OPENSEARCH_HOST', default='http://127.0.0.1:9200')
+
+# Default file search path for documents
+#
+default_root_doc_path = '/work/jonathan/stanford/stanford-academics/StanfordNotes/Research/SLAC LLM (Darve Winter 2025)'
+
+
+#
+huggingface_embeddings_cache_folder = './models'
+

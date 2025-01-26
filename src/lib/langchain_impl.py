@@ -10,42 +10,83 @@ from langchain_community.vectorstores import (
     OpenSearchVectorSearch
 )
 from langchain_ollama import OllamaEmbeddings, OllamaLLM
+from langchain_huggingface import HuggingFaceEmbeddings
 from ollama import Client
 
-from lib.config import default_model, default_prompt, opensearch_url
+from lib.config import default_model, default_prompt, opensearch_url, \
+    huggingface_embeddings_cache_folder
 
 
-def get_models():
-    ollama_client = Client()
-    return (
-            [remote_model['model'] for remote_model in ollama_client.list()['models']]
-            or [default_model]
-    )
-
-
-def pull_model(ollama_model: str = default_model):
+def _parse_model_name(embedding_model: str):
     """
-    Pulls a specific LLM model.
-    :param ollama_model:
+    Splits the model name in format '<source name>:<source model>' at the first colon and
+    returns a tuple of the shape (<source_name>, <source_model>).
+    :param embedding_model:
     :return:
     """
+    return embedding_model.split(':', maxsplit=1)
+
+
+def get_llm_models():
     ollama_client = Client()
-    ollama_client.pull(ollama_model)
+    return [
+        f'ollama:{remote_model['model']}'
+        for remote_model in ollama_client.list()['models']
+    ] or [f'ollama:{default_model}']
+
+
+def get_embedding_models():
+    ollama_models = get_llm_models()
+    huggingface_models = ['huggingface:thellert/physbert_cased']
+    return [*huggingface_models, *ollama_models]
+
+
+def pull_model(embedding_model: str = default_model):
+    """
+    Pulls a specific LLM model.
+    :param embedding_model:
+    :return:
+    """
+    model_source, model_name = _parse_model_name(embedding_model)
+
+    if model_source == 'ollama':
+        ollama_client = Client()
+        ollama_client.pull(model_name)
+    elif model_source == 'huggingface':
+        # Instantiating the embeddings object forces the model to download.
+        #
+        HuggingFaceEmbeddings(
+            model_name=model_name,
+            cache_folder=huggingface_embeddings_cache_folder
+        )
 
 
 def vectorize_md_docs(
         root_path: str,
-        ollama_model: str = default_model,
+        embedding_model: str = default_model,
 ) -> VectorStore:
     """
     Uses a specific Ollama model to perform vector embedding for all Markdown documents
     found via recursive search in the root_path parameter.
 
     :param root_path:
-    :param ollama_model:
+    :param embedding_model: Expected to follow the format <model_source>:<model_name>
+                            (e.g., ollama:deepseek-r1:latest).
     :return:
     """
-    embedding = OllamaEmbeddings(model=ollama_model)
+    model_source, model_name = _parse_model_name(embedding_model)
+
+    # Create embedding from model name.
+    #
+    embedding = (
+        HuggingFaceEmbeddings(
+            model_name=model_name,
+            cache_folder=huggingface_embeddings_cache_folder
+        )
+        if model_source == 'huggingface' else
+        OllamaEmbeddings(model=model_name)
+    )
+
     loader = DirectoryLoader(
         root_path,
         glob='**/*.md',
@@ -65,18 +106,23 @@ def vectorize_md_docs(
 def ask_llm(
         question: str,
         context: Optional[str] = None,
-        ollama_model: str = default_model,
+        llm_model: str = default_model,
 ):
     """
     Asks a particular LLM a question.
 
     :param question:
     :param context:
-    :param ollama_model:
+    :param llm_model:
     :return:
     """
-    ollama_llm = OllamaLLM(model=ollama_model)
-    return ollama_llm.stream([
-        SystemMessage(content=default_prompt.format(context)),
-        HumanMessage(content=question),
-    ])
+    model_source, model_name = _parse_model_name(llm_model)
+
+    if model_source == 'ollama':
+        ollama_llm = OllamaLLM(model=model_name)
+        return ollama_llm.stream([
+            SystemMessage(content=default_prompt.format(context)),
+            HumanMessage(content=question),
+        ])
+    else:
+        return f'Unsupported LLM source {model_source}'
