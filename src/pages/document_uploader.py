@@ -1,11 +1,16 @@
-import os
-from pathlib import Path
+from io import StringIO
+import hashlib
 
-import pandas as pd
+from opensearchpy import OpenSearch
 import streamlit as st
+from langchain_community.vectorstores import (
+    OpenSearchVectorSearch
+)
 
-import lib.nav as nav
 import lib.config as config
+import lib.nav as nav
+import lib.langchain_impl as langchain_impl
+from lib.langchain_impl import get_embedding
 
 st.set_page_config(
     page_title='Document Uploader',
@@ -19,29 +24,57 @@ st.title(':page_facing_up: Document Upload')
 desired_file_extension = '.md'
 document_search_glob = f'*{desired_file_extension}'
 
-# Initialize session state
-#
-if 'root_doc_path' not in st.session_state:
-    st.session_state.root_doc_path = config.default_root_doc_path
+with st.sidebar:
+    st.header('Search Configuration')
+    embeddings_model = st.selectbox(
+        'Select an embedding model:',
+        langchain_impl.get_embedding_models(),
+        index=0,
+    )
 
-root_doc_path = st.text_input(
-    label='Root document path:',
-    help='This folder that will be recursively indexed for search.',
-    key='root_doc_path'
+uploaded_files = st.file_uploader(
+    'Upload source files to be added to the application knowledgebase.',
+    accept_multiple_files=True,
+    type=['txt', 'md'],
 )
-if root_doc_path != st.session_state.root_doc_path:
-    st.session_state.root_doc_path = root_doc_path
 
-if not os.path.exists(st.session_state.root_doc_path):
-    raise ValueError('Selected root document path does not exist.')
+# Upload documents to OpenSearch
+#
+if len(uploaded_files) and st.button('Upload Files'):
+    # Create OpenSearch index if it doesn't already exist
+    #
+    st.text('Ensuring OpenSearch index existence...')
+    opensearch_client = OpenSearch([
+        config.opensearch_url
+    ])
+    opensearch_client.indices.create(
+        index=config.opensearch_index,
+        body=config.opensearch_index_settings,
+        ignore=400
+    )
 
-docs = list(Path(st.session_state.root_doc_path).rglob(document_search_glob))
-doc_df = pd.DataFrame([
-    (f'.{str(doc).removeprefix(st.session_state.root_doc_path)}',
-     doc.stat().st_size
-     ) for doc in docs
-], columns=['Name', 'Size [bytes]'])
-
-st.text('Found the following documents:')
-st.dataframe(doc_df, use_container_width=True)
-
+    embeddings = get_embedding(embeddings_model)
+    vector_search = OpenSearchVectorSearch(
+        index_name=config.opensearch_index,
+        opensearch_url=config.opensearch_url,
+        embedding_function=embeddings,
+    )
+    for uploaded_file in uploaded_files:
+        st.text(f'Uploading {uploaded_file.name}...')
+        file_content = StringIO(uploaded_file.getvalue().decode('utf-8')).read()
+        file_sha1 = hashlib.sha1(uploaded_file.getbuffer()).hexdigest()
+        vector_search.add_texts(
+            texts=[
+                file_content
+            ],
+            metadatas=[
+                {
+                    'file_name': uploaded_file.name,
+                    'file_size': uploaded_file.size,
+                    'embedding_model': embeddings_model,
+                    'sha1': file_sha1,
+                }
+            ],
+            ids=[f'{file_sha1}_{embeddings_model}']
+        )
+    st.write('Done!')

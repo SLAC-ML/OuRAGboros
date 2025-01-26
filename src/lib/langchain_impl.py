@@ -1,16 +1,15 @@
 from typing import Optional
 
+from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_community.document_loaders import (
     DirectoryLoader,
     TextLoader,
 )
-from langchain_community.vectorstores import (
-    OpenSearchVectorSearch
-)
 from langchain_ollama import OllamaEmbeddings, OllamaLLM
 from langchain_huggingface import HuggingFaceEmbeddings
+
 from ollama import Client
 
 from lib.config import default_model, default_prompt, opensearch_url, \
@@ -41,6 +40,21 @@ def get_embedding_models():
     return [*huggingface_models, *ollama_models]
 
 
+def get_embedding(embedding_model: str = default_model) -> Embeddings:
+    model_source, model_name = _parse_model_name(embedding_model)
+
+    # Create embedding from model name.
+    #
+    return (
+        HuggingFaceEmbeddings(
+            model_name=model_name,
+            cache_folder=huggingface_embeddings_cache_folder
+        )
+        if model_source == 'huggingface' else
+        OllamaEmbeddings(model=model_name)
+    )
+
+
 def pull_model(embedding_model: str = default_model):
     """
     Pulls a specific LLM model.
@@ -55,10 +69,7 @@ def pull_model(embedding_model: str = default_model):
     elif model_source == 'huggingface':
         # Instantiating the embeddings object forces the model to download.
         #
-        HuggingFaceEmbeddings(
-            model_name=model_name,
-            cache_folder=huggingface_embeddings_cache_folder
-        )
+        get_embedding(embedding_model)
 
 
 def vectorize_md_docs(
@@ -66,7 +77,7 @@ def vectorize_md_docs(
         embedding_model: str = default_model,
 ) -> VectorStore:
     """
-    Uses a specific Ollama model to perform vector embedding for all Markdown documents
+    Uses a specific embedding model to perform vector embedding for all Markdown documents
     found via recursive search in the root_path parameter.
 
     :param root_path:
@@ -74,18 +85,7 @@ def vectorize_md_docs(
                             (e.g., ollama:deepseek-r1:latest).
     :return:
     """
-    model_source, model_name = _parse_model_name(embedding_model)
-
-    # Create embedding from model name.
-    #
-    embedding = (
-        HuggingFaceEmbeddings(
-            model_name=model_name,
-            cache_folder=huggingface_embeddings_cache_folder
-        )
-        if model_source == 'huggingface' else
-        OllamaEmbeddings(model=model_name)
-    )
+    embedding = get_embedding(embedding_model)
 
     loader = DirectoryLoader(
         root_path,

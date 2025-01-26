@@ -10,6 +10,7 @@ dependencies = [
     "langchain-huggingface>=0.1.2",
     "langchain-ollama>=0.2.2",
     "ollama>=0.4.6",
+    "opensearch-py>=2.8.0",
     "pandas>=2.2.3",
     "streamlit>=1.41.1",
 ]
