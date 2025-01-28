@@ -3,7 +3,7 @@ name = "winter2025-darve"
 version = "0.1.0"
 description = "Python codebase for Winter 2025 Stanford ICME Research Rotation with Eric Darve."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.12.3",
     "langchain-community>=0.3.14",
