@@ -28,7 +28,7 @@ def get_available_llms():
     return [
         f'ollama:{remote_model['model']}'
         for remote_model in ollama_client.list()['models']
-    ] or [f'ollama:{config.default_model}']
+    ] or [config.default_model]
 
 
 def get_available_embeddings():

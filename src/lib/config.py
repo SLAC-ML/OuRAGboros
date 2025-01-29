@@ -9,7 +9,7 @@ default_root_doc_path = '.'
 #
 default_model = os.environ.get(
     'OLLAMA_MODEL_DEFAULT',
-    default='deepseek-r1:latest',
+    default='ollama:llama3.1:latest',
 )
 default_prompt = """You are an assistant tasked with helping students get acquainted with 
 a new research project designed to make sense of a long series of scientific logs 

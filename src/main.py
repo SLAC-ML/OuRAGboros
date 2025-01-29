@@ -72,7 +72,9 @@ with st.sidebar:
     st.header('Search Configuration')
     use_opensearch = st.toggle(
         'Use OpenSearch',
-        help=f'Requires an OpenSearch instance running at {config.opensearch_url}.'
+        help=f'Requires an OpenSearch instance running at {config.opensearch_url}. If '
+             f'this toggle is off, only `*.md` files loaded from the directory '
+             f'`{config.default_root_doc_path}` can be used as possible source documents.'
     )
     embedding_model = st.selectbox(
         'Select an embedding model:',
@@ -80,7 +82,7 @@ with st.sidebar:
         index=0,
     )
     llm_model = st.selectbox(
-        'Select an LLM model:',
+        'Select an LLM:',
         langchain_impl.get_available_llms(),
         index=0,
     )
@@ -157,7 +159,7 @@ if st.session_state.search_query and llm_model:
 
         singular_match = len(st.session_state.documents) == 1
         if len(st.session_state.documents):
-            st.text('Found {} document match{}. '.format(
+            st.text('Found {} document match{}. Asking LLM to summarize...'.format(
                 len(st.session_state.documents),
                 '' if singular_match else 'es'
             ))
