@@ -45,7 +45,7 @@ def get_embedding(embedding_model: str = config.default_model) -> Embeddings:
     return (
         HuggingFaceEmbeddings(
             model_name=model_name,
-            cache_folder=config.huggingface_embeddings_cache_folder
+            cache_folder=config.huggingface_model_cache_folder
         )
         if model_source == 'huggingface' else
         OllamaEmbeddings(model=model_name)

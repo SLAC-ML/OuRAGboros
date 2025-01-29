@@ -20,10 +20,11 @@ Context: {}"""
 # Local embeddings cache folder. Only used for HuggingFace embeddings.
 #
 # See https://python.langchain.com/api_reference/community/embeddings/langchain_community.embeddings.huggingface.HuggingFaceEmbeddings.html#langchain_community.embeddings.huggingface.HuggingFaceEmbeddings.cache_folder
-huggingface_embeddings_cache_folder = os.getenv(
+huggingface_model_cache_folder = os.getenv(
     'SENTENCE_TRANSFORMERS_HOME',
     default='./models',
 )
+pdf_parser_model = 'facebook/nougat-small'
 
 # Vectorstore configuration
 #
