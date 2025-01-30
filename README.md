@@ -4,7 +4,29 @@
 
 First, [install uv](https://docs.astral.sh/uv/getting-started/installation/) and [Ollama](https://ollama.com/).
 
-Then, start Ollama with
+If you're on UNIX and would like a one-liner to install a local copy of `uv` without
+modifying your shell profile, you can run:
+
+```sh
+$ curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="./uv/bin" sh
+```
+
+Similarly, Ollama can be installed locally with:
+
+```sh
+$ mkdir ollama && curl -L https://ollama.com/download/ollama-linux-amd64.tgz | tar -xz -C ollama
+
+# Or, if using an ARM CPU:
+#
+$ mkdir ollama && curl -L https://ollama.com/download/ollama-linux-arm64.tgz | tar -xz -C ollama
+
+# See https://github.com/ollama/ollama/blob/main/docs/linux.md for more information.
+```
+
+If you install locally, you will need to replace any `uv` and `ollama` commands below
+with `./uv/bin/uv` and `./ollama/bin/ollama`, respectively.
+
+After installing via your method of choice, start Ollama with
 
 ```sh
 $ ollama start
