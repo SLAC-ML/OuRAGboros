@@ -1,14 +1,19 @@
-from io import StringIO
+import io
+import os
+from io import StringIO, BytesIO
 import hashlib
 import time
+from typing import BinaryIO
 
 import opensearchpy.exceptions
 import streamlit as st
+from langchain_core.vectorstores import VectorStore
 from opensearchpy import OpenSearch
 
 import lib.config as config
 import lib.nav as nav
 import lib.langchain_impl as langchain_impl
+import lib.pdf as pdf
 
 st.set_page_config(
     page_title='OpenSearch Document Upload',
@@ -22,28 +27,12 @@ st.title(':page_facing_up: OpenSearch Document Upload')
 desired_file_extension = '.md'
 document_search_glob = f'*{desired_file_extension}'
 
-with st.sidebar:
-    st.header('Search Configuration')
-    embedding_model = st.selectbox(
-        'Select an embedding model:',
-        langchain_impl.get_available_embeddings(),
-        index=0,
-    )
 
-uploaded_files = st.file_uploader(
-    'Upload source files to be added to the application knowledgebase.',
-    accept_multiple_files=True,
-    type=['txt', 'md'],
-)
-
-# Upload documents to OpenSearch
-#
-if len(uploaded_files) and st.button('Upload Files'):
-    # Create OpenSearch index if it doesn't already exist
-    #
+def _ensure_opensearch_index(embedding_model_name):
     try:
-        st.text('Ensuring OpenSearch index existence...')
-        vector_size = len(langchain_impl.get_embedding(embedding_model).embed_query('hi'))
+        vector_size = len(
+            langchain_impl.get_embedding(embedding_model_name).embed_query('hi')
+        )
 
         opensearch_client = OpenSearch([
             config.opensearch_url
@@ -56,25 +45,106 @@ if len(uploaded_files) and st.button('Upload Files'):
         if e.status_code != 400:
             raise e
 
+
+def _upload_opensearch_text(
+        vs: VectorStore,
+        embedding_model_name: str,
+        text_file_bytes: BytesIO,
+        text_file_name: str,
+):
+    text_bytes = text_file_bytes.getvalue()
+    file_content = text_bytes.decode('utf-8')
+    file_sha1 = hashlib.sha1(text_file_bytes.getbuffer()).hexdigest()
+
+    metadata = {
+        'embedding_model': embedding_model_name,
+        'sha1': file_sha1,
+        'size': len(text_bytes),
+        'source': text_file_name,
+        'uploaded': int(time.time())
+    }
+
+    vs.add_texts(
+        texts=[
+            file_content
+        ],
+        metadatas=[metadata],
+        ids=[f'{file_sha1}_{embedding_model_name}']
+    )
+
+
+with st.sidebar:
+    st.header('Search Configuration')
+    embedding_model = st.selectbox(
+        'Select an embedding model:',
+        langchain_impl.get_available_embeddings(),
+        index=0,
+    )
+
+# Upload text documents to OpenSearch
+#
+uploaded_text_files = st.file_uploader(
+    'Upload raw text files to be added to the application knowledgebase.',
+    accept_multiple_files=True,
+    type=['txt', 'md'],
+)
+if len(uploaded_text_files) and st.button('Upload Text'):
+    # Create OpenSearch index if it doesn't already exist
+    #
+    st.text('Ensuring OpenSearch index existence...')
+    _ensure_opensearch_index(embedding_model)
+
     vector_store = langchain_impl.opensearch_doc_vector_store(embedding_model)
 
-    for uploaded_file in uploaded_files:
-        st.text(f'Uploading {uploaded_file.name}...')
-        file_content = StringIO(uploaded_file.getvalue().decode('utf-8')).read()
-        file_sha1 = hashlib.sha1(uploaded_file.getbuffer()).hexdigest()
-        vector_store.add_texts(
-            texts=[
-                file_content
-            ],
-            metadatas=[
-                {
-                    'embedding_model': embedding_model,
-                    'sha1': file_sha1,
-                    'size': uploaded_file.size,
-                    'source': uploaded_file.name,
-                    'uploaded': int(time.time())
-                }
-            ],
-            ids=[f'{file_sha1}_{embedding_model}']
+    text_upload_bar = st.empty()
+
+
+    def text_upload_progress(i: int, filename: str, end: int):
+        with text_upload_bar.container():
+            st.progress(i / end, f'Uploading {filename} [{i}/{end}]...')
+
+
+    for k, uploaded_text_file in enumerate(uploaded_text_files):
+        text_upload_progress(k + 1, uploaded_text_file.name, len(uploaded_text_files))
+        _upload_opensearch_text(
+            vs=vector_store,
+            embedding_model_name=embedding_model,
+            text_file_bytes=uploaded_text_file,
+            text_file_name=uploaded_text_file.name,
+        )
+    st.write('Done!')
+
+# Upload PDFs to OpenSearch
+#
+pdf_doc = st.file_uploader(
+    'Upload PDF document to be parsed and added to the application knowledgebase.',
+    type=['pdf'],
+)
+
+if pdf_doc and st.button('Ingest PDF'):
+    # Create OpenSearch index if it doesn't already exist
+    #
+    st.text('Ensuring OpenSearch index existence...')
+    _ensure_opensearch_index(embedding_model)
+
+    vector_store = langchain_impl.opensearch_doc_vector_store(embedding_model)
+
+    pdf_upload_bar = st.empty()
+
+
+    def pdf_upload_progress(i: int, filename: str, end: int):
+        with pdf_upload_bar.container():
+            st.progress(i / end, f'Uploading {filename} [{i}/{end}]...')
+
+
+    for k, (txt_bytes, txt_name, pages) in enumerate(
+            pdf.extract_text(pdf_doc, pdf_doc.name)
+    ):
+        pdf_upload_progress(k + 1, txt_name, len(pages))
+        _upload_opensearch_text(
+            vs=vector_store,
+            embedding_model_name=embedding_model,
+            text_file_bytes=txt_bytes,
+            text_file_name=txt_name,
         )
     st.write('Done!')

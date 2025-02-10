@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Iterable, Tuple
+from typing import Optional, Iterable, Tuple, BinaryIO, List
 from collections import defaultdict
 import io
 import logging
@@ -19,33 +19,36 @@ from transformers import (
 
 import lib.config as config
 
+
 # PDF to PNG
 #
 def _rasterize_paper(
-        pdf_path: Path,
+        pdf_bytes: BinaryIO,
+        filename: str,
         outpath: Optional[Path] = None,
         dpi: int = 96,
-        pages=None,
+        page_range=None,
 ) -> Iterable[io.BytesIO]:
     """
     Rasterize a PDF file to PNG images.
 
     Args:
-        pdf_path (Path): The path to the PDF file.
+        pdf_bytes (io.BytesIO): PDF file bytes.
         outpath (Optional[Path], optional): The output directory. If None, the PIL
         images will not be saved. Defaults to None.
         dpi (int, optional): The output DPI. Defaults to 96.
-        pages (Optional[List[int]], optional): The pages to rasterize. If None, all pages will be rasterized. Defaults to None.
+        page_range (Optional[List[int]], optional): The pages to rasterize. If None,
+        all pages will be rasterized. Defaults to None.
 
     Returns:
-        (Iterable[io.BytesIO], List[int]): The PIL images
+        (Iterable[io.BytesIO], List[int]): The PIL images and list of page numbers.
         None.
     """
     try:
-        pdf = pymupdf.open(pdf_path)
+        pdf_bytes.seek(0, 0)
+        pdf = pymupdf.open(stream=pdf_bytes.read(), filetype="pdf")
 
-        if pages is None:
-            pages = range(len(pdf))
+        pages = page_range or range(len(pdf))
 
         for i in pages:
             page_bytes: bytes = pdf[i].get_pixmap(dpi=dpi).pil_tobytes(format="PNG")
@@ -54,7 +57,7 @@ def _rasterize_paper(
             #
             if outpath:
                 with open(
-                        os.path.join(outpath, f"{pdf_path.stem}_{i + 1}.png"), "wb"
+                        os.path.join(outpath, f"{Path(filename).stem}.{i + 1}.png"), "wb"
                 ) as f:
                     f.write(page_bytes)
 
@@ -124,13 +127,20 @@ class StoppingCriteriaScores(StoppingCriteria):
         return all(self.stopped.values()) and len(self.stopped) > 0
 
 
-def extract_pdf_text(
-        pdf_path: Path,
-        outpath: Optional[Path] = None
-) -> Iterable[Tuple[str, str]]:
+def extract_text(
+        pdf_bytes: BinaryIO,
+        filename: str,
+        outpath: Optional[Path] = None,
+        dpi: int = 96,
+        page_range=None,
+) -> Iterable[Tuple[io.BytesIO, str, List[int]]]:
     """
-    :param pdf_path: Path to PDF file.
+    :param pdf_bytes: Path to PDF file.
+    :param filename: The PDF filename
     :param outpath: The output directory. If None, the text files will not be saved.
+    :param dpi: The output DPI. Defaults to 96.
+    :param page_range: A list of page numbers to extract. If None, all pages will be
+    extracted.
     Defaults to None.
     :return:
     """
@@ -156,9 +166,15 @@ def extract_pdf_text(
     model.to(device)
 
     # Loop through all pages in the document
-    for k, (image, pages) in enumerate(_rasterize_paper(pdf_path, outpath)):
-        print(f"Processing page {pages[k] + 1} [{k+1}/{len(pages)}]...")
-
+    for k, (image, pages) in enumerate(
+            _rasterize_paper(
+                pdf_bytes,
+                filename,
+                outpath=outpath,
+                page_range=page_range,
+                dpi=dpi
+            )
+    ):
         pil_image = Image.open(image)
 
         # Preprocess the current image
@@ -181,16 +197,20 @@ def extract_pdf_text(
         generated = processor.batch_decode(outputs[0], skip_special_tokens=True)[0]
         generated = processor.post_process_generation(generated, fix_markdown=False)
 
-        page_text = f"### Page {pages[k] + 1} ###\n{generated}\n\n"
+        page_bytes = io.BytesIO(
+            f"### Page {pages[k] + 1} ###\n{generated}\n\n".encode('utf-8')
+        )
 
         # Save the to text file if desired
         #
-        output_file = f"{pdf_path.stem}_{pages[k] + 1}.txt"
+        output_file = f"{Path(filename).stem}.{pages[k] + 1}.txt"
+
         if outpath:
-            with open(os.path.join(outpath, output_file), "w", encoding="utf-8") as file:
-                file.write(page_text)
+            with open(os.path.join(outpath, output_file), "wb") as file:
+                file.write(page_bytes.getbuffer())
 
         # Append the processed text to the final output with a page separator
-        yield page_text, output_file
+        #
+        yield page_bytes, output_file, pages
 
     print(f"All pages processed and saved to '{outpath}'")

@@ -71,3 +71,5 @@ opensearch_index_settings = lambda vector_size=768:  {
         }
     }
 }
+
+data_folder = './data'
