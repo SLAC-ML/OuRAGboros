@@ -1,6 +1,6 @@
 .venv
 __pycache__
 models/
-doc/
+data/
 uv/
 ollama/

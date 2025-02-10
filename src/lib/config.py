@@ -36,7 +36,7 @@ opensearch_index = os.getenv(
     'OPENSEARCH_INDEX',
     default='ouragborous',
 )
-opensearch_index_settings = {
+opensearch_index_settings = lambda vector_size=768:  {
     'settings': {
         'index': {
             'number_of_shards': 1,
@@ -55,7 +55,7 @@ opensearch_index_settings = {
             #
             'vector_field': {
                 'type': 'knn_vector',
-                'dimension': 768,
+                'dimension': vector_size,
                 'space_type': 'l2',
                 # See https://opensearch.org/docs/latest/search-plugins/knn/knn-index#method-definitions
                 #

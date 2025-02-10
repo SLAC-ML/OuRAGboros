@@ -46,3 +46,13 @@ in a drop-down on the webpage above. Alternatively, you can set the `OLLAMA_MODE
 environment variable to [any supported Ollama model name](https://ollama.com/search) to
 use that model by default. If the model is not found locally, it will be pulled when a 
 user prompt has been given.
+
+## PDF Chunking
+
+This module provides a mechanism by which PDF documents can be chunked on the command-line
+in order to take advantage of hardware acceleration. To do so, you can simply run:
+
+```
+$ mkdir -p data/chunks
+$ uv run chunk_pdf <pdf path> ./data/chunks
+```

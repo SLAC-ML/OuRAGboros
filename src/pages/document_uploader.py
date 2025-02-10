@@ -43,12 +43,14 @@ if len(uploaded_files) and st.button('Upload Files'):
     #
     try:
         st.text('Ensuring OpenSearch index existence...')
+        vector_size = len(langchain_impl.get_embedding(embedding_model).embed_query('hi'))
+
         opensearch_client = OpenSearch([
             config.opensearch_url
         ])
         opensearch_client.indices.create(
             index=config.opensearch_index,
-            body=config.opensearch_index_settings,
+            body=config.opensearch_index_settings(vector_size=vector_size),
         )
     except opensearchpy.exceptions.RequestError as e:
         if e.status_code != 400:

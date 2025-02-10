@@ -22,3 +22,13 @@ dependencies = [
 dev = [
     "ruff>=0.9.3",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tools"]
+
+[project.scripts]
+chunk_pdf = "tools.chunk_pdf:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
