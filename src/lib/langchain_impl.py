@@ -1,7 +1,7 @@
 from typing import Optional
 
 from langchain_core.embeddings import Embeddings
-from langchain_core.vectorstores import VectorStore
+from langchain_core.vectorstores import VectorStore, InMemoryVectorStore
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_community.vectorstores import OpenSearchVectorSearch
@@ -11,6 +11,16 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from ollama import Client
 
 import lib.config as config
+
+_in_memory_vector_stores = {}
+
+def get_in_memory_vector_store(embedding_model: str) -> VectorStore:
+    if embedding_model not in _in_memory_vector_stores:
+        _in_memory_vector_stores[embedding_model] = InMemoryVectorStore(
+            get_embedding(embedding_model)
+        )
+
+    return _in_memory_vector_stores[embedding_model]
 
 
 def _parse_model_name(embedding_model: str):
@@ -24,7 +34,7 @@ def _parse_model_name(embedding_model: str):
 
 
 def get_available_llms():
-    ollama_client = Client()
+    ollama_client = Client(host=config.ollama_base_url)
     return [
         f'ollama:{remote_model['model']}'
         for remote_model in ollama_client.list()['models']
@@ -48,7 +58,7 @@ def get_embedding(embedding_model: str = config.default_model) -> Embeddings:
             cache_folder=config.huggingface_model_cache_folder
         )
         if model_source == 'huggingface' else
-        OllamaEmbeddings(model=model_name)
+        OllamaEmbeddings(model=model_name, base_url=config.ollama_base_url)
     )
 
 

@@ -7,14 +7,18 @@ default_root_doc_path = '.'
 
 # LLM Configuration
 #
+ollama_base_url = os.environ.get(
+    'OLLAMA_BASE_URL',
+    default='http://localhost:11434',
+)
 default_model = os.environ.get(
     'OLLAMA_MODEL_DEFAULT',
     default='ollama:llama3.1:latest',
 )
-default_prompt = """You are an assistant tasked with helping students get acquainted with 
-a new research project designed to make sense of a long series of scientific logs 
-written by equipment operators at the Stanford Linear Accelerator. If you don't know 
-the answer, say you don't know. Keep answers concise. 
+default_prompt = """You are an assistant tasked with helping students and engineers get 
+understand high-level engineering concepts. You use available context to answer 
+questions about the material contained in the context. Keep answers concise, but elaborate 
+upon request. Output answers in Markdown.
 Context: {}"""
 
 # Local embeddings cache folder. Only used for HuggingFace embeddings.

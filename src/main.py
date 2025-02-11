@@ -57,10 +57,7 @@ def perform_document_retrieval(
         # Uses cosine similarity by default.
         # See: https://python.langchain.com/api_reference/core/vectorstores/langchain_core.vectorstores.in_memory.InMemoryVectorStore.html#langchain_core.vectorstores.in_memory.InMemoryVectorStore
         #
-        vector_store = langchain_impl.markdown_doc_vector_store(
-            config.default_root_doc_path,
-            embedding_model=model,
-        )
+        vector_store = langchain_impl.get_in_memory_vector_store(model)
         # We add 1 to the score to keep formatting consistent with OpenSearch
         return [
             (d, s + 1) for (d, s) in vector_store.similarity_search_with_score(query, k=k)
@@ -73,8 +70,8 @@ with st.sidebar:
     use_opensearch = st.toggle(
         'Use OpenSearch',
         help=f'Requires an OpenSearch instance running at {config.opensearch_url}. If '
-             f'this toggle is off, only `*.md` files loaded from the directory '
-             f'`{config.default_root_doc_path}` can be used as possible source documents.'
+             f'this toggle is off, all documents are retrieved from an in-memory '
+             f'vector store which is lost when the application terminates.',
     )
     embedding_model = st.selectbox(
         'Select an embedding model:',
@@ -122,7 +119,7 @@ def _render_source_docs(docs, opensearch_metadata: bool = False):
         st.markdown(f'**Score:** {score}')
         st.markdown('**Document Text:**')
         st.code('{}{}'.format(
-            doc.page_content[:-100],
+            doc.page_content[:500],
             '... [download file to see more]' if len(doc.page_content) > 100 else ''
         ),
             language=None,

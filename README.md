@@ -36,6 +36,11 @@ Then, run this application with `uv`:
 
 ```sh
 $ uv run streamlit run src/main.py
+
+# If you have Ollama running somewhere other than http://localhost:11434, you can set
+# the OLLAMA_BASE_URL environment variable appropriately:
+
+$ OLLAMA_BASE_URL=http://localhost:11434 uv run streamlit run src/main.py
 ```
 
 ...and navigate to http://localhost:8501 in your favorite browser to get started.

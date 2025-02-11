@@ -10,7 +10,6 @@ from opensearchpy import OpenSearch
 import lib.config as config
 import lib.nav as nav
 import lib.langchain_impl as langchain_impl
-import lib.pdf as pdf
 
 st.set_page_config(
     page_title='OpenSearch Document Upload',
@@ -43,7 +42,7 @@ def _ensure_opensearch_index(embedding_model_name):
             raise e
 
 
-def _upload_opensearch_text(
+def _upload_text_to_vector_store(
         vs: VectorStore,
         embedding_model_name: str,
         text_file_bytes: BytesIO,
@@ -72,6 +71,12 @@ def _upload_opensearch_text(
 
 with st.sidebar:
     st.header('Search Configuration')
+    use_opensearch = st.toggle(
+        'Use OpenSearch',
+        help=f'Requires an OpenSearch instance running at {config.opensearch_url}. If '
+             f'this toggle is off, all documents are stored in-memory and are lost when '
+             f'the application terminates.'
+    )
     embedding_model = st.selectbox(
         'Select an embedding model:',
         langchain_impl.get_available_embeddings(),
@@ -83,32 +88,36 @@ with st.sidebar:
 uploaded_text_files = st.file_uploader(
     'Upload raw text files to be added to the application knowledgebase.',
     accept_multiple_files=True,
-    type=['txt', 'md'],
+    type=['txt', 'md', '.tex'],
 )
-if len(uploaded_text_files) and st.button('Upload Text'):
+if len(uploaded_text_files) and st.button('Embed Text'):
     # Create OpenSearch index if it doesn't already exist
     #
-    st.text('Ensuring OpenSearch index existence...')
-    _ensure_opensearch_index(embedding_model)
-
-    vector_store = langchain_impl.opensearch_doc_vector_store(embedding_model)
+    if use_opensearch:
+        st.text('Ensuring OpenSearch index existence...')
+        _ensure_opensearch_index(embedding_model)
+        vector_store = langchain_impl.opensearch_doc_vector_store(embedding_model)
+    else:
+        vector_store = langchain_impl.get_in_memory_vector_store(embedding_model)
 
     text_upload_bar = st.empty()
 
 
     def text_upload_progress(i: int, filename: str, end: int):
         with text_upload_bar.container():
-            st.progress(i / end, f'Uploading {filename} [{i}/{end}]...')
+            st.progress(i / end, f'Embedding {filename} [{i}/{end}]...')
 
 
     for k, uploaded_text_file in enumerate(uploaded_text_files):
         text_upload_progress(k + 1, uploaded_text_file.name, len(uploaded_text_files))
-        _upload_opensearch_text(
+
+        _upload_text_to_vector_store(
             vs=vector_store,
             embedding_model_name=embedding_model,
             text_file_bytes=uploaded_text_file,
             text_file_name=uploaded_text_file.name,
         )
+
     st.write('Done!')
 
 # Upload PDFs to OpenSearch
@@ -118,30 +127,37 @@ pdf_doc = st.file_uploader(
     type=['pdf'],
 )
 
-if pdf_doc and st.button('Ingest PDF'):
+if pdf_doc and st.button('Embed PDF'):
+    import lib.pdf as pdf
+
     # Create OpenSearch index if it doesn't already exist
     #
-    st.text('Ensuring OpenSearch index existence...')
-    _ensure_opensearch_index(embedding_model)
-
-    vector_store = langchain_impl.opensearch_doc_vector_store(embedding_model)
+    if use_opensearch:
+        st.text('Ensuring OpenSearch index existence...')
+        _ensure_opensearch_index(embedding_model)
+        vector_store = langchain_impl.opensearch_doc_vector_store(embedding_model)
+    else:
+        vector_store = langchain_impl.get_in_memory_vector_store(embedding_model)
 
     pdf_upload_bar = st.empty()
 
 
     def pdf_upload_progress(i: int, filename: str, end: int):
         with pdf_upload_bar.container():
-            st.progress(i / end, f'Uploading {filename} [{i}/{end}]...')
+            st.progress(i / end, f'Embedding {filename} [{i}/{end}]...')
 
-    pdf_extractor = pdf.PDFExtractor()
+
+    pdf_extractor = pdf.NougatExtractor()
     for k, (txt_bytes, txt_name, pages) in enumerate(
             pdf_extractor.extract_text(pdf_doc, pdf_doc.name)
     ):
         pdf_upload_progress(k + 1, txt_name, len(pages))
-        _upload_opensearch_text(
+
+        _upload_text_to_vector_store(
             vs=vector_store,
             embedding_model_name=embedding_model,
             text_file_bytes=txt_bytes,
             text_file_name=txt_name,
         )
+
     st.write('Done!')
