@@ -12,13 +12,13 @@ import lib.nav as nav
 import lib.langchain_impl as langchain_impl
 
 st.set_page_config(
-    page_title='OpenSearch Document Upload',
+    page_title='OpenSearch Document Embedding',
     page_icon=':page_facing_up:',
     layout='wide',
 )
 nav.pages()
 
-st.title(':page_facing_up: OpenSearch Document Upload')
+st.title(':page_facing_up: OpenSearch Document Embedding')
 
 desired_file_extension = '.md'
 document_search_glob = f'*{desired_file_extension}'
@@ -93,6 +93,9 @@ uploaded_text_files = st.file_uploader(
 if len(uploaded_text_files) and st.button('Embed Text'):
     # Create OpenSearch index if it doesn't already exist
     #
+    with st.spinner(f'Pulling `{embedding_model}`...'):
+        langchain_impl.pull_model(embedding_model)
+
     if use_opensearch:
         st.text('Ensuring OpenSearch index existence...')
         _ensure_opensearch_index(embedding_model)
@@ -129,6 +132,9 @@ pdf_doc = st.file_uploader(
 
 if pdf_doc and st.button('Embed PDF'):
     import lib.pdf as pdf
+
+    with st.spinner(f'Pulling `{embedding_model}` embeddings...'):
+        langchain_impl.pull_model(embedding_model)
 
     # Create OpenSearch index if it doesn't already exist
     #
