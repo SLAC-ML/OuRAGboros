@@ -1,9 +1,6 @@
-import io
-import os
-from io import StringIO, BytesIO
+from io import BytesIO
 import hashlib
 import time
-from typing import BinaryIO
 
 import opensearchpy.exceptions
 import streamlit as st
@@ -136,9 +133,9 @@ if pdf_doc and st.button('Ingest PDF'):
         with pdf_upload_bar.container():
             st.progress(i / end, f'Uploading {filename} [{i}/{end}]...')
 
-
+    pdf_extractor = pdf.PDFExtractor()
     for k, (txt_bytes, txt_name, pages) in enumerate(
-            pdf.extract_text(pdf_doc, pdf_doc.name)
+            pdf_extractor.extract_text(pdf_doc, pdf_doc.name)
     ):
         pdf_upload_progress(k + 1, txt_name, len(pages))
         _upload_opensearch_text(

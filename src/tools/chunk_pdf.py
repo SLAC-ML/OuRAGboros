@@ -1,7 +1,7 @@
 from pathlib import Path
 import argparse
 
-from lib.pdf import extract_text
+from lib.pdf import extract_text, PDFExtractor
 
 parser = argparse.ArgumentParser(
     prog='Chunk PDF',
@@ -14,14 +14,17 @@ parser.add_argument('outpath')
 
 def main():
     args = parser.parse_args()
-
+    pdf_extractor = PDFExtractor()
     with open(args.filename, 'rb') as file:
-        for k, (text_bytes, text_file_name, pages) in enumerate(extract_text(
-                pdf_bytes=file,
-                filename=Path(args.filename).name,
-                outpath=Path(args.outpath),
-                page_range=[0, 7, 9]
-        )):
+        for k, (text_bytes, text_file_name, pages) in enumerate(
+                pdf_extractor.extract_text(
+                    pdf_bytes=file,
+                    filename=Path(args.filename).name,
+                    outpath=Path(args.outpath),
+                    page_range=None,
+                    # page_range=[0, 7, 9],
+                )
+        ):
             print(f"Processing page {pages[k] + 1} [{k + 1}/{len(pages)}]...")
 
 
