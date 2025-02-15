@@ -1,0 +1,73 @@
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.19.0
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "DISABLE_INSTALL_DEMO_CONFIG=true"
+      - "DISABLE_SECURITY_PLUGIN=true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    restart: "always"
+  ollama:
+    image: ollama/ollama:0.5.11
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    restart: "always"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+  app:
+    build: .
+    image: schrodingersket/ouragboros:0.0.1
+    volumes:
+      - huggingface_models:/app/models
+    depends_on:
+      - ollama
+      - opensearch
+    ports:
+      - 8501:8501
+    environment:
+      # Loaded from .env
+      #
+      - "OLLAMA_BASE_URL=${OLLAMA_BASE_URL}"
+      - "OLLAMA_MODEL_DEFAULT=${OLLAMA_MODEL_DEFAULT}"
+      - "SENTENCE_TRANSFORMERS_HOME=${SENTENCE_TRANSFORMERS_HOME}"
+      - "PDF_PARSER_MODEL=${PDF_PARSER_MODEL}"
+      - "OPENSEARCH_BASE_URL=${OPENSEARCH_BASE_URL}"
+      - "OPENSEARCH_INDEX_PREFIX=${OPENSEARCH_INDEX_PREFIX}"
+    restart: "always"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: /app
+          ignore:
+            - .venv/
+            - data/
+            - models/
+        - action: rebuild
+          path: ./uv.lock
+
+volumes:
+  opensearch_data:
+  ollama_data:
+  huggingface_models:

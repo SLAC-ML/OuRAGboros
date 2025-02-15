@@ -13,22 +13,30 @@ Then, run this application with `uv`:
 
 ```sh
 $ uv run streamlit run src/main.py
-
-# If you have Ollama running somewhere other than http://localhost:11434, you can set
-# the OLLAMA_BASE_URL environment variable to use that Ollama instance instead:
-#
-$ OLLAMA_BASE_URL=http://localhost:11434 uv run streamlit run src/main.py
 ```
 
-...and navigate to http://localhost:8501 in your favorite browser to get started.
+If you have OpenSearch or Ollama running somewhere other than locally, you can change the
+appropriate configuration by modifying the environment variables listed in the 
+`.default.env` file at the root of this directory or by modifying your host system's 
+environment; the latter configuration takes precedence.
 
-This project uses `llama3.1:latest` by default, but any other model (e.g. `deepseek-r1`, 
-`codellama`, etc.) can be used by simply running `ollama pull <model name>`. The newly 
-pulled model will be available to select in a drop-down on the webpage above after the
-page is reloaded. Alternatively, you can set the `OLLAMA_MODEL_DEFAULT` environment 
-variable to [any supported Ollama model name](https://ollama.com/search) to use that model 
-by default. If the model is not found locally, it will be pulled when a user prompt has 
-been provided.
+The `.env` file contains configuration to run the project via 
+[Docker Compose](https://docs.docker.com/compose/) and should be modified as necessary 
+when deploying the application to production. It follows exactly the same format as 
+`.default.env`, and any environment variables not specified in `.env` will default to
+the values listed in `.default.env`.
+
+Once everything's configured, head to http://localhost:8501 in your favorite browser to 
+get started.
+
+This project uses the `llama3.1:latest` LLM by default, but any other model (e.g. 
+`deepseek-r1`, `codellama`, etc.) can be used by simply running 
+`ollama pull <model name>`. The newly pulled model will be available to select in a 
+drop-down on the webpage above after the page is reloaded. Alternatively, you can set the 
+`OLLAMA_MODEL_DEFAULT` environment variable to 
+[any supported Ollama model name](https://ollama.com/search) to use that model by default. 
+If the model is not found locally, it will be pulled when a user prompt has been provided
+in the application UI.
 
 ### Local Installation
 If you're on UNIX and would like a one-liner to install a local copy of `uv` without

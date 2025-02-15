@@ -1,20 +1,14 @@
 import os
 
-# Default file search path for documents. This searches the current
-# repository for Markdown files.
-#
-default_root_doc_path = '.'
+import dotenv
+
+dotenv.load_dotenv('.default.env')
 
 # LLM Configuration
 #
-ollama_base_url = os.environ.get(
-    'OLLAMA_BASE_URL',
-    default='http://localhost:11434',
-)
-default_model = os.environ.get(
-    'OLLAMA_MODEL_DEFAULT',
-    default='ollama:llama3.1:latest',
-)
+ollama_base_url = os.getenv('OLLAMA_BASE_URL')
+default_model = os.getenv('OLLAMA_MODEL_DEFAULT')
+
 default_prompt = """You are an assistant tasked with helping students and engineers get 
 understand high-level engineering concepts. You use available context to answer 
 questions about the material contained in the context. Keep answers concise, but elaborate 
@@ -24,22 +18,14 @@ Context: {}"""
 # Local embeddings cache folder. Only used for HuggingFace embeddings.
 #
 # See https://python.langchain.com/api_reference/community/embeddings/langchain_community.embeddings.huggingface.HuggingFaceEmbeddings.html#langchain_community.embeddings.huggingface.HuggingFaceEmbeddings.cache_folder
-huggingface_model_cache_folder = os.getenv(
-    'SENTENCE_TRANSFORMERS_HOME',
-    default='./models',
-)
-pdf_parser_model = 'facebook/nougat-small'
+huggingface_model_cache_folder = os.getenv('SENTENCE_TRANSFORMERS_HOME')
+pdf_parser_model = os.getenv('PDF_PARSER_MODEL')
 
 # Vectorstore configuration
 #
-opensearch_url = os.getenv(
-    'OPENSEARCH_HOST',
-    default='http://127.0.0.1:9200',
-)
-opensearch_index = os.getenv(
-    'OPENSEARCH_INDEX',
-    default='ouragborous',
-)
+opensearch_base_url = os.getenv('OPENSEARCH_BASE_URL')
+opensearch_index_prefix = os.getenv('OPENSEARCH_INDEX_PREFIX')
+
 opensearch_index_settings = lambda vector_size=768:  {
     'settings': {
         'index': {
@@ -75,5 +61,3 @@ opensearch_index_settings = lambda vector_size=768:  {
         }
     }
 }
-
-data_folder = './data'

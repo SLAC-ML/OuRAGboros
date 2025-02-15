@@ -13,7 +13,7 @@ st.set_page_config(
 )
 nav.pages()
 
-st.title(':snake: LangChain OuRAGborous')
+st.title(':snake: LangChain OuRAGboros')
 
 # Initialize session state
 #
@@ -69,7 +69,7 @@ with st.sidebar:
     st.header('Search Configuration')
     use_opensearch = st.toggle(
         'Use OpenSearch',
-        help=f'Requires an OpenSearch instance running at {config.opensearch_url}. If '
+        help=f'Requires an OpenSearch instance running at {config.opensearch_base_url}. If '
              f'this toggle is off, all documents are retrieved from an in-memory '
              f'vector store which is lost when the application terminates.',
     )

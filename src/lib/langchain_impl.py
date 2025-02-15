@@ -71,7 +71,7 @@ def pull_model(embedding_model: str = config.default_model):
     model_source, model_name = _parse_model_name(embedding_model)
 
     if model_source == 'ollama':
-        ollama_client = Client()
+        ollama_client = Client(host=config.ollama_base_url)
         ollama_client.pull(model_name)
     elif model_source == 'huggingface':
         # Instantiating the embeddings object forces the model to download.
@@ -116,8 +116,8 @@ def opensearch_doc_vector_store(embedding_model: str) -> OpenSearchVectorSearch:
     """
     embeddings = get_embedding(embedding_model)
     return OpenSearchVectorSearch(
-        index_name=config.opensearch_index,
-        opensearch_url=config.opensearch_url,
+        index_name=config.opensearch_index_prefix,
+        opensearch_url=config.opensearch_base_url,
         embedding_function=embeddings,
     )
 
@@ -138,7 +138,8 @@ def ask_llm(
     model_source, model_name = _parse_model_name(llm_model)
 
     if model_source == 'ollama':
-        ollama_llm = OllamaLLM(model=model_name)
+        ollama_llm = OllamaLLM(model=model_name, base_url=config.ollama_base_url)
+
         return ollama_llm.stream([
             SystemMessage(content=config.default_prompt.format(context)),
             HumanMessage(content=question),

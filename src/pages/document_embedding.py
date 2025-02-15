@@ -31,10 +31,10 @@ def _ensure_opensearch_index(embedding_model_name):
         )
 
         opensearch_client = OpenSearch([
-            config.opensearch_url
+            config.opensearch_base_url
         ])
         opensearch_client.indices.create(
-            index=config.opensearch_index,
+            index=config.opensearch_index_prefix,
             body=config.opensearch_index_settings(vector_size=vector_size),
         )
     except opensearchpy.exceptions.RequestError as e:
@@ -73,7 +73,7 @@ with st.sidebar:
     st.header('Search Configuration')
     use_opensearch = st.toggle(
         'Use OpenSearch',
-        help=f'Requires an OpenSearch instance running at {config.opensearch_url}. If '
+        help=f'Requires an OpenSearch instance running at {config.opensearch_base_url}. If '
              f'this toggle is off, all documents are stored in-memory and are lost when '
              f'the application terminates.'
     )
