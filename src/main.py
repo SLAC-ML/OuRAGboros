@@ -43,6 +43,10 @@ def perform_document_retrieval(
     """
     if use_opensearch_vectorstore:
         import langchain_community.vectorstores.opensearch_vector_search as os_vs
+
+        st.text('Ensuring OpenSearch index existence...')
+        langchain_impl.ensure_opensearch_index(model)
+
         return langchain_impl.opensearch_doc_vector_store(
             embedding_model).similarity_search_with_score(
             query=query,
@@ -86,7 +90,7 @@ with st.sidebar:
     )
     query_result_score_inf = st.slider(
         'Set the document match score threshold:',
-        value=0.5,
+        value=1.0,
         min_value=0.0,
         max_value=2.0,
         help='Score is computed using cosine similarity plus 1 to ensure a non-negative '
@@ -168,27 +172,30 @@ if st.session_state.search_query and llm_model:
         st.session_state.documents = matches
 
         singular_match = len(st.session_state.documents) == 1
+
         if len(st.session_state.documents):
-            st.text('Found {} document match{}. Asking LLM to summarize...'.format(
+            st.text('Found {} document match{}.'.format(
                 len(st.session_state.documents),
                 '' if singular_match else 'es'
             ))
-
-            context = '\n'.join([
-                doc.page_content for doc, score in st.session_state.documents
-            ])
-
-            st.session_state.llm_response = langchain_impl.ask_llm(
-                llm_model,
-                llm_prompt,
-                st.session_state.search_query,
-                context=context,
-            )
-            st.write_stream(st.session_state.llm_response)
-
-            with st.expander(f'Source document{'' if singular_match else 's'}'):
-                _render_source_docs(st.session_state.documents, use_opensearch)
         else:
             st.warning(
-                'No document matches found. Try a new query, or lower the score threshold.'
+                'No document matches found. Try a new query or lower the score '
+                'threshold for a more context-aware response.'
             )
+
+        context = '\n'.join([
+            doc.page_content for doc, score in st.session_state.documents
+        ])
+
+        st.session_state.llm_response = langchain_impl.ask_llm(
+            llm_model,
+            llm_prompt,
+            st.session_state.search_query,
+            context=context,
+        )
+        st.write_stream(st.session_state.llm_response)
+
+        if len(st.session_state.documents):
+            with st.expander(f'Source document{'' if singular_match else 's'}'):
+                _render_source_docs(st.session_state.documents, use_opensearch)

@@ -3,10 +3,8 @@ from io import BytesIO
 import hashlib
 import time
 
-import opensearchpy.exceptions
 import streamlit as st
 from langchain_core.vectorstores import VectorStore
-from opensearchpy import OpenSearch
 
 import lib.config as config
 import lib.nav as nav
@@ -33,23 +31,6 @@ def _sliding_window(sequence: iter, window_size: int, step_size: int):
             yield sequence[i: i + window_size]
     else:
         yield sequence
-
-
-def _ensure_opensearch_index(embedding_model_name):
-    try:
-        index_name, vector_size = langchain_impl.get_opensearch_index_settings(
-            embedding_model_name)
-
-        opensearch_client = OpenSearch([
-            config.opensearch_base_url
-        ])
-        opensearch_client.indices.create(
-            index=index_name,
-            body=config.opensearch_index_settings(vector_size=vector_size),
-        )
-    except opensearchpy.exceptions.RequestError as e:
-        if e.status_code != 400:
-            raise e
 
 
 def _upload_text_to_vector_store(
@@ -153,7 +134,7 @@ if len(uploaded_files) and st.button('Embed Text'):
 
     if use_opensearch:
         st.text('Ensuring OpenSearch index existence...')
-        _ensure_opensearch_index(embedding_model)
+        langchain_impl.ensure_opensearch_index(embedding_model)
         vector_store = langchain_impl.opensearch_doc_vector_store(embedding_model)
     else:
         vector_store = langchain_impl.get_in_memory_vector_store(embedding_model)

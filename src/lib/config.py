@@ -27,8 +27,30 @@ def _bool_from_env(env: str) -> bool:
 ollama_base_url = os.getenv('OLLAMA_BASE_URL')
 default_model = os.getenv('OLLAMA_MODEL_DEFAULT')
 
-default_prompt = """You are a helpful assistant. When possible, use available 
-context to answer questions. Keep answers concise. Output answers in Markdown.
+default_prompt = (
+    "You are a helpful assistant. Output answers in Markdown. Use $ and $$ to surround "
+    "mathematical formulas."
+)
+
+test_text = r"""
+We consider a symmetric matrix A and the Lanczos iteration starting from vector $q_1$. We
+assume that we can run all $n-1$ iterations successfully. $Q = [q_1, q_2, ..., q_n]$ is
+the orthogonal Lanczos sequences. We denote by T the tri-diagonal matrix such that
+
+$$
+A = Q T Q^T.
+$$
+
+We also denote by $T_k$ the $k \times k$ leading principal submatrix of $T$ and $Q_k$ the
+$n \times k$ matrix formed by the first $k$ columns of $Q$.
+
+Prove that
+
+$$
+T_k = \arg \min_{R} {\left\lVert {A Q_k - Q_k R} \right\rVert_2},
+$$
+
+where $R$ is a $k \times k$ matrix.
 """
 
 # Local embeddings cache folder. Only used for HuggingFace embeddings.

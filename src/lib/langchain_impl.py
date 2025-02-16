@@ -2,6 +2,9 @@ import hashlib
 import logging
 from typing import Optional, Tuple
 
+import opensearchpy.exceptions
+from opensearchpy import OpenSearch
+
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore, InMemoryVectorStore
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -65,20 +68,6 @@ def get_embedding(embedding_model: str) -> Embeddings:
     )
 
 
-def get_opensearch_index_settings(embedding_model: str) -> Tuple[str, int]:
-    if embedding_model not in _opensearch_configs:
-        logging.debug(f'{embedding_model} not found in _opensearch_configs; generating..')
-        vector_size = len(get_embedding(embedding_model).embed_query('hi'))
-        model_id = hashlib.sha256(embedding_model.encode('utf-8')).hexdigest()
-
-        _opensearch_configs[embedding_model] = (
-            f'{config.opensearch_index_prefix}_{vector_size}_{model_id}',
-            vector_size,
-        )
-
-    return _opensearch_configs[embedding_model]
-
-
 def pull_model(embedding_model):
     """
     Pulls a specific LLM model.
@@ -94,25 +83,6 @@ def pull_model(embedding_model):
         # Instantiating the embeddings object forces the model to download.
         #
         get_embedding(embedding_model)
-
-
-def opensearch_doc_vector_store(embedding_model: str) -> OpenSearchVectorSearch:
-    """
-    Uses a specific embedding model to perform vector embedding for documents via
-    OpenSearch.
-
-    :param embedding_model: Expected to follow the format <model_source>:<model_name>
-                            (e.g., ollama:deepseek-r1:latest).
-    :param embedding_model:
-    :return:
-    """
-    embeddings = get_embedding(embedding_model)
-    index_name, _ = get_opensearch_index_settings(embedding_model)
-    return OpenSearchVectorSearch(
-        index_name=index_name,
-        opensearch_url=config.opensearch_base_url,
-        embedding_function=embeddings,
-    )
 
 
 def ask_llm(
@@ -134,10 +104,61 @@ def ask_llm(
 
     if model_source == 'ollama':
         ollama_llm = OllamaLLM(model=model_name, base_url=config.ollama_base_url)
+        system_message = f"{llm_prompt} \n Context: {context}" if context else llm_prompt
 
         return ollama_llm.stream([
-            SystemMessage(content=f"{llm_prompt} \n Context: {context}"),
+            SystemMessage(content=system_message),
             HumanMessage(content=question),
         ])
     else:
         return f'Unsupported LLM source {model_source}'
+
+
+def get_opensearch_index_settings(embedding_model: str) -> Tuple[str, int]:
+    if embedding_model not in _opensearch_configs:
+        logging.debug(f'{embedding_model} not found in _opensearch_configs; generating..')
+        vector_size = len(get_embedding(embedding_model).embed_query('hi'))
+        model_id = hashlib.sha256(embedding_model.encode('utf-8')).hexdigest()
+
+        _opensearch_configs[embedding_model] = (
+            f'{config.opensearch_index_prefix}_{vector_size}_{model_id}',
+            vector_size,
+        )
+
+    return _opensearch_configs[embedding_model]
+
+
+def ensure_opensearch_index(embedding_model_name):
+    try:
+        index_name, vector_size = get_opensearch_index_settings(
+            embedding_model_name)
+
+        opensearch_client = OpenSearch([
+            config.opensearch_base_url
+        ])
+        opensearch_client.indices.create(
+            index=index_name,
+            body=config.opensearch_index_settings(vector_size=vector_size),
+        )
+    except opensearchpy.exceptions.RequestError as e:
+        if e.status_code != 400:
+            raise e
+
+
+def opensearch_doc_vector_store(embedding_model: str) -> OpenSearchVectorSearch:
+    """
+    Uses a specific embedding model to perform vector embedding for documents via
+    OpenSearch.
+
+    :param embedding_model: Expected to follow the format <model_source>:<model_name>
+                            (e.g., ollama:deepseek-r1:latest).
+    :param embedding_model:
+    :return:
+    """
+    embeddings = get_embedding(embedding_model)
+    index_name, _ = get_opensearch_index_settings(embedding_model)
+    return OpenSearchVectorSearch(
+        index_name=index_name,
+        opensearch_url=config.opensearch_base_url,
+        embedding_function=embeddings,
+    )
