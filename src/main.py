@@ -86,11 +86,19 @@ with st.sidebar:
     )
     query_result_score_inf = st.slider(
         'Set the document match score threshold:',
-        value=1.0,
+        value=0.5,
         min_value=0.0,
         max_value=2.0,
         help='Score is computed using cosine similarity plus 1 to ensure a non-negative '
              'score.'
+    )
+    return_documents = st.slider(
+        'Set the maximum retrieved documents:',
+        value=3,
+        min_value=1,
+        max_value=15,
+        step=1,
+        help='Sets an upper bound on the number of documents to return.'
     )
     llm_prompt = st.text_area('Model Prompt', config.default_prompt, height=250)
 
