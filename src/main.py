@@ -75,12 +75,12 @@ with st.sidebar:
              f'vector store which is lost when the application terminates.',
     )
     embedding_model = st.selectbox(
-        'Select an embedding model:',
+        'Embedding model:',
         langchain_impl.get_available_embeddings(),
         index=0,
     )
     llm_model = st.selectbox(
-        'Select an LLM:',
+        'LLM:',
         langchain_impl.get_available_llms(),
         index=0,
     )

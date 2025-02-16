@@ -6,13 +6,14 @@ dotenv.load_dotenv('.default.env')
 
 
 def _bool_from_env(env: str) -> bool:
-    value = os.getenv(env)
+    value = os.getenv(env).lower() if os.getenv(env) else None
 
     true_vals = ('yes', 'true', 't', 'y', '1')
-    false_vals = ('no', 'false', 'f', 'n', '0', 'off')
-    if value.lower() in true_vals:
+    false_vals = ('no', 'false', 'f', 'n', '0', 'off', None, '')
+
+    if value in true_vals:
         return True
-    elif value.lower() in false_vals:
+    elif value in false_vals:
         return False
     else:
         raise ValueError(

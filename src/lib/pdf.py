@@ -165,13 +165,11 @@ class NougatExtractor(PDFExtractor):
             generated = processor.batch_decode(outputs[0], skip_special_tokens=True)[0]
             generated = processor.post_process_generation(generated, fix_markdown=False)
 
-            page_bytes = io.BytesIO(
-                f"### Page {pages[k] + 1} ###\n{generated}\n\n".encode('utf-8')
-            )
+            page_bytes = io.BytesIO(generated.encode('utf-8'))
 
             # Save the to text file if desired
             #
-            output_file = f"{Path(filename).stem}.{pages[k] + 1}.txt"
+            output_file = f"{Path(filename).name}_{pages[k] + 1}.txt"
 
             if outpath:
                 with open(os.path.join(outpath, output_file), "wb") as file:
