@@ -126,6 +126,7 @@ def ask_llm(
         question: str,
         context: Optional[str] = None,
         llm_model: str = config.default_model,
+        llm_prompt: str = config.default_prompt,
 ):
     """
     Asks a particular LLM a question.
@@ -141,7 +142,7 @@ def ask_llm(
         ollama_llm = OllamaLLM(model=model_name, base_url=config.ollama_base_url)
 
         return ollama_llm.stream([
-            SystemMessage(content=config.default_prompt.format(context)),
+            SystemMessage(content=f"{llm_prompt} \n Context: {context}"),
             HumanMessage(content=question),
         ])
     else:

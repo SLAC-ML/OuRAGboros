@@ -4,16 +4,30 @@ import dotenv
 
 dotenv.load_dotenv('.default.env')
 
+
+def _bool_from_env(env: str) -> bool:
+    value = os.getenv(env)
+
+    true_vals = ('yes', 'true', 't', 'y', '1')
+    false_vals = ('no', 'false', 'f', 'n', '0', 'off')
+    if value.lower() in true_vals:
+        return True
+    elif value.lower() in false_vals:
+        return False
+    else:
+        raise ValueError(
+            f'Boolean value expected for environment variable {env}. Choose from '
+            f'{true_vals} or {false_vals}.'
+        )
+
 # LLM Configuration
 #
 ollama_base_url = os.getenv('OLLAMA_BASE_URL')
 default_model = os.getenv('OLLAMA_MODEL_DEFAULT')
 
-default_prompt = """You are an assistant tasked with helping students and engineers get 
-understand high-level engineering concepts. You use available context to answer 
-questions about the material contained in the context. Keep answers concise, but elaborate 
-upon request. Output answers in Markdown.
-Context: {}"""
+default_prompt = """You are a helpful assistant. When possible, use available 
+context to answer questions. Keep answers concise. Output answers in Markdown.
+"""
 
 # Local embeddings cache folder. Only used for HuggingFace embeddings.
 #
@@ -21,12 +35,13 @@ Context: {}"""
 huggingface_model_cache_folder = os.getenv('SENTENCE_TRANSFORMERS_HOME')
 pdf_parser_model = os.getenv('PDF_PARSER_MODEL')
 
-# Vectorstore configuration
+# Vector store configuration
 #
+prefer_opensearch = _bool_from_env('PREFER_OPENSEARCH')
 opensearch_base_url = os.getenv('OPENSEARCH_BASE_URL')
 opensearch_index_prefix = os.getenv('OPENSEARCH_INDEX_PREFIX')
 
-opensearch_index_settings = lambda vector_size=768:  {
+opensearch_index_settings = lambda vector_size=768: {
     'settings': {
         'index': {
             'number_of_shards': 1,

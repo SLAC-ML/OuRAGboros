@@ -47,6 +47,7 @@ services:
       - "PDF_PARSER_MODEL=${PDF_PARSER_MODEL}"
       - "OPENSEARCH_BASE_URL=${OPENSEARCH_BASE_URL}"
       - "OPENSEARCH_INDEX_PREFIX=${OPENSEARCH_INDEX_PREFIX}"
+      - "PREFER_OPENSEARCH=${PREFER_OPENSEARCH}"
     restart: "always"
     deploy:
       resources:

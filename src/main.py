@@ -69,6 +69,7 @@ with st.sidebar:
     st.header('Search Configuration')
     use_opensearch = st.toggle(
         'Use OpenSearch',
+        config.prefer_opensearch,
         help=f'Requires an OpenSearch instance running at {config.opensearch_base_url}. If '
              f'this toggle is off, all documents are retrieved from an in-memory '
              f'vector store which is lost when the application terminates.',
@@ -91,6 +92,7 @@ with st.sidebar:
         help='Score is computed using cosine similarity plus 1 to ensure a non-negative '
              'score.'
     )
+    llm_prompt = st.text_area('Model Prompt', config.default_prompt, height=250)
 
 search_query = st.chat_input('Enter a search query')
 
@@ -172,6 +174,7 @@ if st.session_state.search_query and llm_model:
                 st.session_state.search_query,
                 context,
                 llm_model=llm_model,
+                llm_prompt=llm_prompt,
             )
             st.write_stream(st.session_state.llm_response)
 

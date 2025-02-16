@@ -73,6 +73,7 @@ with st.sidebar:
     st.header('Search Configuration')
     use_opensearch = st.toggle(
         'Use OpenSearch',
+        config.prefer_opensearch,
         help=f'Requires an OpenSearch instance running at {config.opensearch_base_url}. If '
              f'this toggle is off, all documents are stored in-memory and are lost when '
              f'the application terminates.'
