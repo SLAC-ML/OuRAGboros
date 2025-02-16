@@ -14,13 +14,13 @@ import lib.nav as nav
 import lib.langchain_impl as langchain_impl
 
 st.set_page_config(
-    page_title='OpenSearch Document Embedding',
+    page_title='Document Embedding',
     page_icon=':page_facing_up:',
     layout='wide',
 )
 nav.pages()
 
-st.title(':page_facing_up: OpenSearch Document Embedding')
+st.title(':page_facing_up: Document Embedding')
 
 
 def _sliding_window(sequence: iter, window_size: int, step_size: int):
