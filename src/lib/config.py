@@ -57,6 +57,7 @@ where $R$ is a $k \times k$ matrix.
 #
 # See https://python.langchain.com/api_reference/community/embeddings/langchain_community.embeddings.huggingface.HuggingFaceEmbeddings.html#langchain_community.embeddings.huggingface.HuggingFaceEmbeddings.cache_folder
 huggingface_model_cache_folder = os.getenv('SENTENCE_TRANSFORMERS_HOME')
+huggingface_default_embedding_model = os.getenv('HUGGINGFACE_EMBEDDING_MODEL_DEFAULT')
 pdf_parser_model = os.getenv('PDF_PARSER_MODEL')
 
 # Vector store configuration

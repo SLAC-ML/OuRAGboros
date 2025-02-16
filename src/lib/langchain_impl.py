@@ -49,8 +49,8 @@ def get_available_llms():
 
 def get_available_embeddings():
     ollama_models = get_available_llms()
-    huggingface_models = ['huggingface:thellert/physbert_cased']
-    return [*ollama_models, *huggingface_models]
+    huggingface_models = [f'huggingface:{config.huggingface_default_embedding_model}']
+    return [*huggingface_models, *ollama_models]
 
 
 def get_embedding(embedding_model: str) -> Embeddings:
