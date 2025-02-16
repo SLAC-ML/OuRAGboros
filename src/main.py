@@ -171,10 +171,10 @@ if st.session_state.search_query and llm_model:
             ])
 
             st.session_state.llm_response = langchain_impl.ask_llm(
+                llm_model,
+                llm_prompt,
                 st.session_state.search_query,
-                context,
-                llm_model=llm_model,
-                llm_prompt=llm_prompt,
+                context=context,
             )
             st.write_stream(st.session_state.llm_response)
 

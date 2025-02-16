@@ -21,6 +21,7 @@ def _bool_from_env(env: str) -> bool:
             f'{true_vals} or {false_vals}.'
         )
 
+
 # LLM Configuration
 #
 ollama_base_url = os.getenv('OLLAMA_BASE_URL')
@@ -42,38 +43,40 @@ prefer_opensearch = _bool_from_env('PREFER_OPENSEARCH')
 opensearch_base_url = os.getenv('OPENSEARCH_BASE_URL')
 opensearch_index_prefix = os.getenv('OPENSEARCH_INDEX_PREFIX')
 
-opensearch_index_settings = lambda vector_size=768: {
-    'settings': {
-        'index': {
-            'number_of_shards': 1,
-            'number_of_replicas': 0,
-            'knn': True
-        }
-    },
-    'mappings': {
-        'properties': {
-            # For keyword search
-            #
-            'content': {
-                'type': 'text',
-            },
-            # Vector search
-            #
-            'vector_field': {
-                'type': 'knn_vector',
-                'dimension': vector_size,
-                'space_type': 'l2',
-                # See https://opensearch.org/docs/latest/search-plugins/knn/knn-index#method-definitions
+
+def opensearch_index_settings(vector_size: int):
+    return {
+        'settings': {
+            'index': {
+                'number_of_shards': 1,
+                'number_of_replicas': 0,
+                'knn': True
+            }
+        },
+        'mappings': {
+            'properties': {
+                # For keyword search
                 #
-                'method': {
-                    'name': 'hnsw',
-                    'engine': 'lucene',
-                    'parameters': {
-                        'ef_construction': 512,
-                        'm': 16
+                'content': {
+                    'type': 'text',
+                },
+                # Vector search
+                #
+                'vector_field': {
+                    'type': 'knn_vector',
+                    'dimension': vector_size,
+                    'space_type': 'l2',
+                    # See https://opensearch.org/docs/latest/search-plugins/knn/knn-index#method-definitions
+                    #
+                    'method': {
+                        'name': 'hnsw',
+                        'engine': 'lucene',
+                        'parameters': {
+                            'ef_construction': 512,
+                            'm': 16
+                        }
                     }
-                }
-            },
+                },
+            }
         }
     }
-}

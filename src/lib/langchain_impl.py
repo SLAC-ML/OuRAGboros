@@ -1,9 +1,10 @@
-from typing import Optional
+import hashlib
+import logging
+from typing import Optional, Tuple
 
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore, InMemoryVectorStore
 from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_community.vectorstores import OpenSearchVectorSearch
 from langchain_ollama import OllamaEmbeddings, OllamaLLM
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -13,6 +14,8 @@ from ollama import Client
 import lib.config as config
 
 _in_memory_vector_stores = {}
+_opensearch_configs = {}
+
 
 def get_in_memory_vector_store(embedding_model: str) -> VectorStore:
     if embedding_model not in _in_memory_vector_stores:
@@ -44,10 +47,10 @@ def get_available_llms():
 def get_available_embeddings():
     ollama_models = get_available_llms()
     huggingface_models = ['huggingface:thellert/physbert_cased']
-    return [*huggingface_models, *ollama_models]
+    return [*ollama_models, *huggingface_models]
 
 
-def get_embedding(embedding_model: str = config.default_model) -> Embeddings:
+def get_embedding(embedding_model: str) -> Embeddings:
     model_source, model_name = _parse_model_name(embedding_model)
 
     # Create embedding from model name.
@@ -62,7 +65,21 @@ def get_embedding(embedding_model: str = config.default_model) -> Embeddings:
     )
 
 
-def pull_model(embedding_model: str = config.default_model):
+def get_opensearch_index_settings(embedding_model: str) -> Tuple[str, int]:
+    if embedding_model not in _opensearch_configs:
+        logging.debug(f'{embedding_model} not found in _opensearch_configs; generating..')
+        vector_size = len(get_embedding(embedding_model).embed_query('hi'))
+        model_id = hashlib.sha256(embedding_model.encode('utf-8')).hexdigest()
+
+        _opensearch_configs[embedding_model] = (
+            f'{config.opensearch_index_prefix}_{vector_size}_{model_id}',
+            vector_size,
+        )
+
+    return _opensearch_configs[embedding_model]
+
+
+def pull_model(embedding_model):
     """
     Pulls a specific LLM model.
     :param embedding_model:
@@ -79,31 +96,6 @@ def pull_model(embedding_model: str = config.default_model):
         get_embedding(embedding_model)
 
 
-def markdown_doc_vector_store(
-        root_path: str,
-        embedding_model: str = config.default_model,
-) -> VectorStore:
-    """
-    Uses a specific embedding model to perform vector embedding for all Markdown documents
-    found via recursive search in the root_path parameter.
-
-    :param root_path:
-    :param embedding_model: Expected to follow the format <model_source>:<model_name>
-                            (e.g., ollama:deepseek-r1:latest).
-    :return:
-    """
-    embedding = get_embedding(embedding_model)
-
-    loader = DirectoryLoader(
-        root_path,
-        glob='**/*.md',
-        loader_cls=TextLoader,
-    )
-    documents = loader.load()
-
-    from langchain_core.vectorstores import InMemoryVectorStore
-    return InMemoryVectorStore.from_documents(documents, embedding)
-
 def opensearch_doc_vector_store(embedding_model: str) -> OpenSearchVectorSearch:
     """
     Uses a specific embedding model to perform vector embedding for documents via
@@ -115,18 +107,19 @@ def opensearch_doc_vector_store(embedding_model: str) -> OpenSearchVectorSearch:
     :return:
     """
     embeddings = get_embedding(embedding_model)
+    index_name, _ = get_opensearch_index_settings(embedding_model)
     return OpenSearchVectorSearch(
-        index_name=config.opensearch_index_prefix,
+        index_name=index_name,
         opensearch_url=config.opensearch_base_url,
         embedding_function=embeddings,
     )
 
 
 def ask_llm(
+        llm_model: str,
+        llm_prompt: str,
         question: str,
         context: Optional[str] = None,
-        llm_model: str = config.default_model,
-        llm_prompt: str = config.default_prompt,
 ):
     """
     Asks a particular LLM a question.
@@ -134,6 +127,7 @@ def ask_llm(
     :param question:
     :param context:
     :param llm_model:
+    :param llm_prompt:
     :return:
     """
     model_source, model_name = _parse_model_name(llm_model)
