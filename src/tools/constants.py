@@ -1,0 +1,5 @@
+FILENAME_ARG = 'filename'
+OUTPATH_ARG = '--outpath'
+BASE_MODEL_ARG = '--base-model'
+LOG_DIR_ARG = '--log-dir'
+TUNED_MODEL_ARG = '--tuned-model-name'

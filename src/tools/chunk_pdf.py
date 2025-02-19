@@ -2,14 +2,19 @@ from pathlib import Path
 import argparse
 
 from lib.pdf import NougatExtractor
+from tools.constants import FILENAME_ARG, OUTPATH_ARG
 
 parser = argparse.ArgumentParser(
-    prog='Chunk PDF',
+    prog='uv run chunk_pdf',
     description='Chunks a PDF into a bunch of text files.',
 )
 
-parser.add_argument('filename')
-parser.add_argument('outpath')
+parser.add_argument(FILENAME_ARG, help='Input PDF file.')
+parser.add_argument(
+    OUTPATH_ARG,
+    help='Output directory to store processed text files.',
+    default='.'
+)
 
 
 def main():

@@ -65,9 +65,64 @@ If you install `uv` (resp. `ollama`) locally, you will need to replace the above
 
 In addition to in-application PDF chunking, this module provides a mechanism 
 to chunk documents on the command-line in order to run offline and take advantage of 
-hardware acceleration. To do so, you can simply run:
+hardware acceleration. To see how to do so, just run `uv run chunk_pdf --help` to see all
+command line options:
+
+```
+$ uv run chunk_pdf --help
+usage: uv run chunk_pdf [-h] [--outpath OUTPATH] filename
+
+Chunks a PDF into a bunch of text files.
+
+positional arguments:
+  filename           Input PDF file.
+
+options:
+  -h, --help         show this help message and exit
+  --outpath OUTPATH  Output directory to store processed text files.
+```
+
+For example:
 
 ```
 $ mkdir -p data/chunks
 $ uv run chunk_pdf <pdf path> ./data/chunks
 ```
+
+### Offline Fine-Tuning
+
+Fine-tuning a sentence transformer can make a big difference in the quality of text 
+embeddings. To see how this is done, just run `uv run finetune_model --help` to see all
+command line options:
+
+```
+$ uv run finetune_model --help
+usage: uv run finetune [-h] [--outpath OUTPATH] [--base-model BASE_MODEL] [--tuned-model-name TUNED_MODEL_NAME] [--log-dir LOG_DIR] filename
+
+Fine-tunes a particular HuggingFace model on a body of text.
+
+positional arguments:
+  filename              Text file to use for model tuning.
+
+options:
+  -h, --help            show this help message and exit
+  --outpath OUTPATH     Destination path for the fine-tuned model.
+  --base-model BASE_MODEL
+                        Base model to fine-tune from.
+  --tuned-model-name TUNED_MODEL_NAME
+                        Name for the fine-tuned model.
+  --log-dir LOG_DIR     Directory in which to store training log files.
+```
+
+For example, to fine-tune a model for use in this project, you can run:
+
+```
+$ uv run finetune_model <text file path> \
+    --outpath=./models \
+    --base-model=google-bert/bert-base-uncased \
+    --tuned-model-name=my-cool-model
+```
+
+Once the model is trained, just update the `HUGGINGFACE_FINETUNED_EMBEDDING_MODEL` 
+environment variable in `.default.env` to `my-cool-model`, refresh your browser page, 
+and start experimenting!
