@@ -98,7 +98,7 @@ with st.sidebar:
     )
     chunk_size = st.number_input(
         'Text chunk size [characters]:',
-        value=2000,
+        value=4000,
         min_value=0,
         step=50,
         help='Used to split each text file (or PDF page) into smaller chunks for '

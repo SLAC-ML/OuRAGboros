@@ -173,7 +173,7 @@ if st.session_state.search_query and llm_model:
 
         matches = perform_document_retrieval(
             st.session_state.search_query,
-            k=3,
+            k=return_documents,
             score_threshold=query_result_score_inf,
             model=embedding_model,
             use_opensearch_vectorstore=use_opensearch,
