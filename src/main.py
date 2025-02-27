@@ -162,10 +162,10 @@ if st.session_state.search_query and llm_model:
     with st.chat_message("user"):
         st.text(st.session_state.search_query)
 
-    with st.spinner(f"Pulling `{embedding_model}` embeddings..."):
+    with st.spinner(f"Loading `{embedding_model}` embeddings..."):
         langchain_impl.pull_model(embedding_model)
 
-    with st.spinner(f"Pulling `{llm_model}` LLM..."):
+    with st.spinner(f"Loading `{llm_model}` LLM..."):
         langchain_impl.pull_model(llm_model)
 
     with st.chat_message("ai"):

@@ -129,7 +129,7 @@ uploaded_files = st.file_uploader(
 if len(uploaded_files) and st.button('Embed Text'):
     # Create OpenSearch index if it doesn't already exist
     #
-    with st.spinner(f'Pulling `{embedding_model}` embeddings...'):
+    with st.spinner(f'Loading `{embedding_model}` embeddings...'):
         langchain_impl.pull_model(embedding_model)
 
     if use_opensearch:

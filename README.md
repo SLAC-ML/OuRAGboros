@@ -15,38 +15,45 @@ Then, run this application with `uv`:
 $ uv run streamlit run src/main.py
 ```
 
-If you have OpenSearch or Ollama running somewhere other than locally, you can change the
-appropriate configuration by modifying the environment variables listed in the 
-`.default.env` file at the root of this directory or by modifying your host system's 
-environment; the latter configuration takes precedence.
+### Docker Compose
 
-The `.env` file contains configuration to run the project via 
-[Docker Compose](https://docs.docker.com/compose/) and should be modified as necessary 
-when deploying the application to production. It follows exactly the same format as 
-`.default.env`, and any environment variables not specified in `.env` will default to
-the values listed in `.default.env`.
+[Docker Compose](https://docs.docker.com/compose/) is by far the easiest way to run this
+project; the `.env` file contains the necessary configuration for this out-of-the-box
+and may be modified as necessary when deploying the application to an external server.
+The `.env` file follows exactly the same format as `.default.env`, and any environment
+variables not specified in `.env` will default to the values listed in `.default.env`.
 
-Once everything's configured, head to http://localhost:8501 in your favorite browser to 
-get started.
+When run via Docker Compose, this application starts and uses OpenSearch as a persistent 
+vector database.
 
-This project uses the `llama3.1:latest` LLM by default, but any other model (e.g. 
-`deepseek-r1`, `codellama`, etc.) can be used by simply running 
-`ollama pull <model name>`. The newly pulled model will be available to select in a 
-drop-down on the webpage above after the page is reloaded. Alternatively, you can set the 
-`OLLAMA_MODEL_DEFAULT` environment variable to 
-[any supported Ollama model name](https://ollama.com/search) to use that model by default. 
-If the model is not found locally, it will be pulled when a user prompt has been provided
-in the application UI.
+#### Kubernetes
 
-### Local Installation
-If you're on UNIX and would like a one-liner to install a local copy of `uv` without
-modifying your shell profile, you can run:
+We use [Kompose](https://kompose.io/) to convert the `docker-compose.yml` file included
+in this project to the corresponding Kubernetes configuration. Unless you're managing a 
+deployment to a remote server, you don't need to worry about this. Generated Kubernetes
+files can be found in the `k8s` folder. To generate them, just run:
+
+```shell
+$ mkdir k8s && cd k8s && kompose convert -f ../docker-compose.yml
+$ kubectl apply -f .
+$ kubectl get po
+```
+
+### Local Tooling (`uv`, `ollama`) Installation
+
+If you prefer not to use a system-wide installation (or do not have root access), you can
+install `uv` and `ollama` locally.
+
+Check the [latest installation instructions](https://docs.astral.sh/uv/getting-started/installation/)
+for `uv`; on UNIX systems, you can install a local copy without modifying your default
+shell:
 
 ```sh
 $ curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="./uv/bin" sh
 ```
 
-Similarly, Ollama can be installed locally with:
+Ollama can be installed by 
+[following the Ollama Installation Guide](https://ollama.com/download). On Linux, this is as simple as:
 
 ```sh
 $ mkdir ollama && curl -L https://ollama.com/download/ollama-linux-amd64.tgz | tar -xz -C ollama
@@ -59,7 +66,36 @@ $ mkdir ollama && curl -L https://ollama.com/download/ollama-linux-arm64.tgz | t
 ```
 
 If you install `uv` (resp. `ollama`) locally, you will need to replace the above `uv`
-(resp. `ollama`) command with `./uv/bin/uv` (resp. `./ollama/bin/ollama`).
+(resp. `ollama`) command with `./uv/bin/uv` (resp. `./path/to/ollama`).
+
+### OpenSearch
+
+This application runs with an in-memory vector store by default; this means that any
+uploaded embeddings will be lost when the application restarts. To support persistent
+embeddings, we use the [OpenSearch](https://opensearch.org/) vector store. To point to
+an existing OpenSearch installation, you can change the appropriate configuration by 
+modifying the environment variables listed in the `.default.env` file at the root of this 
+directory (or by modifying your host system's environment); the latter configuration 
+takes precedence.
+
+Check the [OpenSearch downloads](https://opensearch.org/downloads.html) page for detailed
+installation information. If you're running on MacOS, you'll need to use Docker Compose
+to run OpenSearch (which is recommended for all users anyway).
+
+## Usage
+Once everything's configured, head to http://localhost:8501 in your favorite browser to 
+get started.
+
+This project uses the `llama3.1:latest` LLM by default, but any other model (e.g. 
+`deepseek-r1`, `codellama`, etc.) can be used simply by running 
+`ollama pull <model name>` (or `docker-compose exec ollama ollama pull <model name>` if
+using Docker Compose). The newly pulled model will be available to select in a 
+drop-down on the webpage above after the page is reloaded. Alternatively, you can set the 
+`OLLAMA_MODEL_DEFAULT` environment variable to 
+[any supported Ollama model name](https://ollama.com/search) to use that model by default. 
+If the model is not found locally, it will be pulled when a user prompt has been provided
+in the application UI.
+
 
 ### Offline PDF Chunking
 
