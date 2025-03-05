@@ -24,19 +24,91 @@ The `.env` file follows exactly the same format as `.default.env`, and any envir
 variables not specified in `.env` will default to the values listed in `.default.env`.
 
 When run via Docker Compose, this application starts and uses OpenSearch as a persistent 
-vector database.
+vector database. Once you've [installed Docker Compose](https://docs.docker.com/compose/install/),
+just run
+
+```sh
+$ docker-compose up
+```
+
+in this directory to build and start the application. 
+
+### Usage
+
+Whether you started the application via `uv` or `docker-compose`, you can head to 
+http://localhost:8501 in your favorite browser once everything's running to get started.
+
 
 #### Kubernetes/Helm
 
-We use [Kompose](https://kompose.io/) to convert the `docker-compose.yml` file included
-in this project to the corresponding Kubernetes configuration/Helm chart. Unless you're 
-managing a deployment to a remote server, you don't need to worry about this. Generated 
-Kubernetes files can be found in the `k8s` folder. To generate them, just run:
+> NOTE: This section contains deployment guidelines for managing this application as a
+> [Kubernetes cluster](https://kubernetes.io/docs/home/). If you don't know what that is,
+> you're probably safe to skip this section unless you've been assigned the task of 
+> deploying this application to a remote server for the multi-user use case.
 
-```shell
-$ mkdir k8s && cd k8s && kompose convert -f ../docker-compose.yml -c
-$ kubectl apply -f .
-$ kubectl get po
+We use [Kompose](https://kompose.io/) to convert the `docker-compose.yml` file included
+in this project to the corresponding [Helm chart](https://helm.sh/). To generate these 
+files, just run:
+
+```sh
+$ kompose convert -c
+```
+
+Default values for this deployment can be found in `docker-compose/values.yaml`, which
+follows the standard [Helm Values Files format](https://helm.sh/docs/chart_template_guide/values_files/).
+This file is unaffected by the `kompose convert` command, so it's safe to modify 
+`docker-compose.yml` and re-generate the Helm chart as needed. In `docker-compose.yml`,
+(which is used by the `kompose` command to generate Helm charts) you'll see environment 
+variables that might look a bit funny:
+
+```yaml
+...
+  - "OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-{{ .Values.ollamaBaseUrl }}}"
+...
+```
+
+This format causes the `OLLAMA_BASE_URL` environment variable to default to the string
+`{{ .Values.ollamaBaseUrl }}` when the `OLLAMA_BASE_URL` environment variable is empty,
+which is _not_ the case when you run `docker-compose up` locally (since the `.env` file
+populates those values automatically); it is, however, the case when Helm charts are 
+generated, and the default value you'll see is exactly the format required by Helm to 
+substitute values from `docker-compose/values.yaml` into the Helm templates when you 
+install the chart. To install the chart (which deploys services to a Kubernetes cluster),
+run:
+
+```sh
+$ helm install ouragboros ./docker-compose --namespace --create-namespace ouragboros
+```
+
+Helm has a [cheatsheet](https://helm.sh/docs/intro/cheatsheet/) that lists some useful
+commands for managing an application through Helm.
+
+#### Minikube
+
+This Kubernetes deployment was developed and tested using 
+[Minikube](https://minikube.sigs.k8s.io/docs/start/). If you're using Minikube, you can
+access the main application after installing the Helm chart via:
+
+```sh
+$ minikube service ouragboros-tcp --namespace ouragboros
+```
+
+#### GPU Acceleration
+
+See the [official Kubernetes guide](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
+for the latest documentation. If using NVIDIA drivers, you can install the [relevant Helm
+chart](https://github.com/NVIDIA/k8s-device-plugin?tab=readme-ov-file#deployment-via-helm):
+
+```sh
+$ helm repo add nvdp https://nvidia.github.io/k8s-device-plugin
+$ helm repo update
+$ helm install ouragboros-nvidia-device-plugin nvdp/nvidia-device-plugin --namespace ouragboros --create-namespace
+```
+
+If using Minikube, you'll also need to be sure to allow Minikube to access your GPUs:
+
+```sh
+$ minikube start --docker-opt="default-ulimit=nofile=102400:102400" --driver docker --container-runtime docker --gpus all
 ```
 
 ### Local Tooling (`uv`, `ollama`) Installation
@@ -82,20 +154,16 @@ Check the [OpenSearch downloads](https://opensearch.org/downloads.html) page for
 installation information. If you're running on MacOS, you'll need to use Docker Compose
 to run OpenSearch (which is recommended for all users anyway).
 
-## Usage
-Once everything's configured, head to http://localhost:8501 in your favorite browser to 
-get started.
+### Changing LLMs
 
-This project uses the `llama3.1:latest` LLM by default, but any other model (e.g. 
-`deepseek-r1`, `codellama`, etc.) can be used simply by running 
-`ollama pull <model name>` (or `docker-compose exec ollama ollama pull <model name>` if
-using Docker Compose). The newly pulled model will be available to select in a 
-drop-down on the webpage above after the page is reloaded. Alternatively, you can set the 
-`OLLAMA_MODEL_DEFAULT` environment variable to 
-[any supported Ollama model name](https://ollama.com/search) to use that model by default. 
-If the model is not found locally, it will be pulled when a user prompt has been provided
-in the application UI.
-
+This project uses the `llama3.1:latest` LLM by default, but any other Ollama model (e.g. 
+`deepseek-r1`, `codellama`, etc.) can be used simply by running `ollama pull <model name>` 
+(or `docker-compose exec ollama ollama pull <model name>` if using Docker Compose). The 
+newly pulled model will be available to select in a drop-down on the webpage above after 
+the page is reloaded. Alternatively, you can set the `OLLAMA_MODEL_DEFAULT` environment 
+variable to [any supported Ollama model name](https://ollama.com/search) to use that model 
+by default. If the model is not found locally, it will be pulled when a user prompt has 
+been provided in the application UI.
 
 ### Offline PDF Chunking
 

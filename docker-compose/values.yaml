@@ -1,0 +1,13 @@
+ollamaBaseUrl: "http://ollama:11434"
+ollamaModelDefault: "ollama:llama3.1"
+
+sentenceTransformersHome: "models"
+pdfParserModel: "facebook/nougat-small"
+huggingfaceEmbeddingModelDefault: "thellert/physbert_cased"
+huggingfaceFinetunedEmbeddingModel: "oragboros_finetuned"
+
+opensearchBaseUrl: "http://opensearch:9200"
+opensearchIndexPrefix: "ouragboros"
+preferOpensearch: "true"
+
+opensearchJavaOpts: "-Xms512m -Xmx512m"

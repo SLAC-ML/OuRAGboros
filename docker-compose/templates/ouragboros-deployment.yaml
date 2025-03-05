@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c
+    kompose.service.expose: "true"
+    kompose.service.type: LoadBalancer
+    kompose.version: 1.35.0 (HEAD)
+    kompose.volume.size: 3Gi
+  labels:
+    io.kompose.service: ouragboros
+  name: ouragboros
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: ouragboros
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -c
+        kompose.service.expose: "true"
+        kompose.service.type: LoadBalancer
+        kompose.version: 1.35.0 (HEAD)
+        kompose.volume.size: 3Gi
+      labels:
+        io.kompose.service: ouragboros
+    spec:
+      containers:
+        - env:
+            - name: HUGGINGFACE_EMBEDDING_MODEL_DEFAULT
+              value: '{{ .Values.huggingfaceEmbeddingModelDefault }}'
+            - name: HUGGINGFACE_FINETUNED_EMBEDDING_MODEL
+              value: '{{ .Values.huggingfaceFinetunedEmbeddingModel }}'
+            - name: OLLAMA_BASE_URL
+              value: '{{ .Values.ollamaBaseUrl }}'
+            - name: OLLAMA_MODEL_DEFAULT
+              value: '{{ .Values.ollamaModelDefault }}'
+            - name: OPENSEARCH_BASE_URL
+              value: '{{ .Values.opensearchBaseUrl }}'
+            - name: OPENSEARCH_INDEX_PREFIX
+              value: '{{ .Values.opensearchIndexPrefix }}'
+            - name: PDF_PARSER_MODEL
+              value: '{{ .Values.pdfParserModel }}'
+            - name: PREFER_OPENSEARCH
+              value: '{{ .Values.preferOpensearch }}'
+            - name: SENTENCE_TRANSFORMERS_HOME
+              value: '{{ .Values.sentenceTransformersHome }}'
+          image: schrodingersket/ouragboros:0.0.1
+          name: ouragboros
+          ports:
+            - containerPort: 8501
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /app/models
+              name: ouragboros-models
+      restartPolicy: Always
+      volumes:
+        - name: ouragboros-models
+          persistentVolumeClaim:
+            claimName: ouragboros-models

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c
+    kompose.service.expose: "true"
+    kompose.service.type: LoadBalancer
+    kompose.version: 1.35.0 (HEAD)
+    kompose.volume.size: 3Gi
+  labels:
+    io.kompose.service: ouragboros-tcp
+  name: ouragboros-tcp
+spec:
+  ports:
+    - name: "8501"
+      port: 8501
+      targetPort: 8501
+  selector:
+    io.kompose.service: ouragboros
+  type: LoadBalancer
