@@ -77,7 +77,7 @@ install the chart. To install the chart (which deploys services to a Kubernetes 
 run:
 
 ```sh
-$ helm install ouragboros ./docker-compose --namespace --create-namespace ouragboros
+$ helm install ouragboros ./docker-compose --namespace ouragboros --create-namespace
 ```
 
 Helm has a [cheatsheet](https://helm.sh/docs/intro/cheatsheet/) that lists some useful
