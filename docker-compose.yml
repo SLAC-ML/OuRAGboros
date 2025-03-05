@@ -1,25 +1,29 @@
 services:
   opensearch:
     image: opensearchproject/opensearch:2.19.0
+    ports:
+      - 9200
     environment:
       - discovery.type=single-node
       - bootstrap.memory_lock=true
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
       - "DISABLE_INSTALL_DEMO_CONFIG=true"
       - "DISABLE_SECURITY_PLUGIN=true"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    restart: "always"
     ulimits:
       memlock:
         soft: -1
         hard: -1
-    volumes:
-      - opensearch_data:/usr/share/opensearch/data
-    restart: "always"
   ollama:
     image: ollama/ollama:0.5.11
-    volumes:
-      - ollama_data:/root/.ollama
+    ports:
+      - 11434
     environment:
       - OLLAMA_KEEP_ALIVE=24h
+    volumes:
+      - ollama_data:/root/.ollama
     restart: "always"
     deploy:
       resources:
@@ -31,11 +35,9 @@ services:
   app:
     build: .
     image: schrodingersket/ouragboros:0.0.1
-    volumes:
-      - huggingface_models:/app/models
-    depends_on:
-      - ollama
-      - opensearch
+    labels:
+      kompose.service.type: LoadBalancer
+      kompose.service.expose: "true"
     ports:
       - 8501:8501
     environment:
@@ -50,7 +52,12 @@ services:
       - "PREFER_OPENSEARCH=${PREFER_OPENSEARCH}"
       - "HUGGINGFACE_EMBEDDING_MODEL_DEFAULT=${HUGGINGFACE_EMBEDDING_MODEL_DEFAULT}"
       - "HUGGINGFACE_FINETUNED_EMBEDDING_MODEL=${HUGGINGFACE_FINETUNED_EMBEDDING_MODEL}"
+    volumes:
+      - huggingface_models:/app/models
     restart: "always"
+    depends_on:
+      - ollama
+      - opensearch
     deploy:
       resources:
         reservations:

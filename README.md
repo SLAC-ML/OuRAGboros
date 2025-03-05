@@ -26,15 +26,15 @@ variables not specified in `.env` will default to the values listed in `.default
 When run via Docker Compose, this application starts and uses OpenSearch as a persistent 
 vector database.
 
-#### Kubernetes
+#### Kubernetes/Helm
 
 We use [Kompose](https://kompose.io/) to convert the `docker-compose.yml` file included
-in this project to the corresponding Kubernetes configuration. Unless you're managing a 
-deployment to a remote server, you don't need to worry about this. Generated Kubernetes
-files can be found in the `k8s` folder. To generate them, just run:
+in this project to the corresponding Kubernetes configuration/Helm chart. Unless you're 
+managing a deployment to a remote server, you don't need to worry about this. Generated 
+Kubernetes files can be found in the `k8s` folder. To generate them, just run:
 
 ```shell
-$ mkdir k8s && cd k8s && kompose convert -f ../docker-compose.yml
+$ mkdir k8s && cd k8s && kompose convert -f ../docker-compose.yml -c
 $ kubectl apply -f .
 $ kubectl get po
 ```
