@@ -32,8 +32,61 @@ spec:
               value: "true"
             - name: DISABLE_SECURITY_PLUGIN
               value: "true"
+            - name: HUGGINGFACE_EMBEDDING_MODEL_DEFAULT
+              valueFrom:
+                configMapKeyRef:
+                  key: HUGGINGFACE_EMBEDDING_MODEL_DEFAULT
+                  name: kubernetes-env
+            - name: HUGGINGFACE_FINETUNED_EMBEDDING_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  key: HUGGINGFACE_FINETUNED_EMBEDDING_MODEL
+                  name: kubernetes-env
+            - name: OLLAMA_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: OLLAMA_BASE_URL
+                  name: kubernetes-env
+            - name: OLLAMA_MODEL_DEFAULT
+              valueFrom:
+                configMapKeyRef:
+                  key: OLLAMA_MODEL_DEFAULT
+                  name: kubernetes-env
+            - name: OPENAI_API_KEY
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENAI_API_KEY
+                  name: kubernetes-env
+            - name: OPENSEARCH_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENSEARCH_BASE_URL
+                  name: kubernetes-env
+            - name: OPENSEARCH_INDEX_PREFIX
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENSEARCH_INDEX_PREFIX
+                  name: kubernetes-env
             - name: OPENSEARCH_JAVA_OPTS
-              value: '{{ .Values.opensearchJavaOpts }}'
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENSEARCH_JAVA_OPTS
+                  name: kubernetes-env
+            - name: PDF_PARSER_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  key: PDF_PARSER_MODEL
+                  name: kubernetes-env
+            - name: PREFER_OPENSEARCH
+              valueFrom:
+                configMapKeyRef:
+                  key: PREFER_OPENSEARCH
+                  name: kubernetes-env
+            - name: SENTENCE_TRANSFORMERS_HOME
+              valueFrom:
+                configMapKeyRef:
+                  key: SENTENCE_TRANSFORMERS_HOME
+                  name: kubernetes-env
             - name: bootstrap.memory_lock
               value: "true"
             - name: discovery.type

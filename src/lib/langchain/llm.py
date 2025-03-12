@@ -1,4 +1,4 @@
-from typing import Optional, Iterator
+from typing import Iterator
 
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_ollama import OllamaLLM
@@ -36,36 +36,33 @@ def get_available_llms() -> list[str]:
 
 def query_llm(
         llm_model: str,
-        llm_prompt: str,
         question: str,
-        context: Optional[str] = None,
+        system_message: str = "",
 ) -> Iterator[str]:
     """
-    Asks a particular LLM a question.
+    Asks a particular LLM a question. A system message (e.g., "you are a helpful
+    teaching assistant tasked with explaining the following documents to students...")
+    may optionally be provided to the LLM.
 
     :param question:
-    :param context:
+    :param system_message:
     :param llm_model:
-    :param llm_prompt:
     :return:
     """
     model_source, model_name = langchain_utils.parse_model_name(llm_model)
 
     if model_source == 'ollama':
         ollama_llm = OllamaLLM(model=model_name, base_url=config.ollama_base_url)
-        system_message = f"{llm_prompt} \n Context: {context}" if context else llm_prompt
-
         return ollama_llm.stream([
             SystemMessage(content=system_message),
-            HumanMessage(content=question),
+            HumanMessage(content=question)
         ])
-    if model_source == 'openai':
+    elif model_source == 'openai':
         openai_llm = OpenAI(openai_api_key=config.openai_api_key, model_name=model_name)
-        system_message = f"{llm_prompt} \n Context: {context}" if context else llm_prompt
 
         return openai_llm.stream([
             SystemMessage(content=system_message),
-            HumanMessage(content=question),
+            HumanMessage(content=question)
         ])
     else:
-        yield f'Unsupported LLM source {model_source}'
+        return iter(())

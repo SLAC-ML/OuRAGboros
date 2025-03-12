@@ -57,24 +57,9 @@ $ kompose convert -c
 Default values for this deployment can be found in `docker-compose/values.yaml`, which
 follows the standard [Helm Values Files format](https://helm.sh/docs/chart_template_guide/values_files/).
 This file is unaffected by the `kompose convert` command, so it's safe to modify 
-`docker-compose.yml` and re-generate the Helm chart as needed. In `docker-compose.yml`,
-(which is used by the `kompose` command to generate Helm charts) you'll see environment 
-variables that might look a bit funny:
-
-```yaml
-...
-  - "OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-{{ .Values.ollamaBaseUrl }}}"
-...
-```
-
-This format causes the `OLLAMA_BASE_URL` environment variable to default to the string
-`{{ .Values.ollamaBaseUrl }}` when the `OLLAMA_BASE_URL` environment variable is empty,
-which is _not_ the case when you run `docker-compose up` locally (since the `.env` file
-populates those values automatically); it is, however, the case when Helm charts are 
-generated, and the default value you'll see is exactly the format required by Helm to 
-substitute values from `docker-compose/values.yaml` into the Helm templates when you 
-install the chart. To install the chart (which deploys services to a Kubernetes cluster),
-run:
+`docker-compose.yml` and re-generate the Helm chart as needed; the `docker-compose.yml`
+file is configured to read environment variables from `.kubernetes.env` during chart
+generation. To install the chart (which deploys services to a Kubernetes cluster), run:
 
 ```sh
 $ helm install ouragboros ./docker-compose --namespace ouragboros --create-namespace

@@ -31,23 +31,60 @@ spec:
       containers:
         - env:
             - name: HUGGINGFACE_EMBEDDING_MODEL_DEFAULT
-              value: '{{ .Values.huggingfaceEmbeddingModelDefault }}'
+              valueFrom:
+                configMapKeyRef:
+                  key: HUGGINGFACE_EMBEDDING_MODEL_DEFAULT
+                  name: kubernetes-env
             - name: HUGGINGFACE_FINETUNED_EMBEDDING_MODEL
-              value: '{{ .Values.huggingfaceFinetunedEmbeddingModel }}'
+              valueFrom:
+                configMapKeyRef:
+                  key: HUGGINGFACE_FINETUNED_EMBEDDING_MODEL
+                  name: kubernetes-env
             - name: OLLAMA_BASE_URL
-              value: '{{ .Values.ollamaBaseUrl }}'
+              valueFrom:
+                configMapKeyRef:
+                  key: OLLAMA_BASE_URL
+                  name: kubernetes-env
             - name: OLLAMA_MODEL_DEFAULT
-              value: '{{ .Values.ollamaModelDefault }}'
+              valueFrom:
+                configMapKeyRef:
+                  key: OLLAMA_MODEL_DEFAULT
+                  name: kubernetes-env
+            - name: OPENAI_API_KEY
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENAI_API_KEY
+                  name: kubernetes-env
             - name: OPENSEARCH_BASE_URL
-              value: '{{ .Values.opensearchBaseUrl }}'
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENSEARCH_BASE_URL
+                  name: kubernetes-env
             - name: OPENSEARCH_INDEX_PREFIX
-              value: '{{ .Values.opensearchIndexPrefix }}'
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENSEARCH_INDEX_PREFIX
+                  name: kubernetes-env
+            - name: OPENSEARCH_JAVA_OPTS
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENSEARCH_JAVA_OPTS
+                  name: kubernetes-env
             - name: PDF_PARSER_MODEL
-              value: '{{ .Values.pdfParserModel }}'
+              valueFrom:
+                configMapKeyRef:
+                  key: PDF_PARSER_MODEL
+                  name: kubernetes-env
             - name: PREFER_OPENSEARCH
-              value: '{{ .Values.preferOpensearch }}'
+              valueFrom:
+                configMapKeyRef:
+                  key: PREFER_OPENSEARCH
+                  name: kubernetes-env
             - name: SENTENCE_TRANSFORMERS_HOME
-              value: '{{ .Values.sentenceTransformersHome }}'
+              valueFrom:
+                configMapKeyRef:
+                  key: SENTENCE_TRANSFORMERS_HOME
+                  name: kubernetes-env
           image: schrodingersket/ouragboros:0.0.1
           name: ouragboros
           ports:

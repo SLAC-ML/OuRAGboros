@@ -1,24 +1,33 @@
-import pathlib
-from io import BytesIO
 import hashlib
+import io
+import pathlib
 import time
 
 import streamlit as st
 from langchain_core.vectorstores import VectorStore
 
-import lib.config as config
-import lib.nav as nav
+import lib.streamlit.nav as nav
+import lib.streamlit.session_state as ss
 
 import lib.langchain.embeddings as langchain_embeddings
 import lib.langchain.models as langchain_models
 import lib.langchain.opensearch as langchain_opensearch
+
+import lib.config as config
 
 st.set_page_config(
     page_title='Document Embedding',
     page_icon=':page_facing_up:',
     layout='wide',
 )
+
+# Initialize navigation bar
+#
 nav.pages()
+
+# Initialize session state
+#
+available_llms, available_embeddings = ss.init()
 
 st.title(':page_facing_up: Document Embedding')
 
@@ -39,7 +48,7 @@ def _sliding_window(sequence: iter, window_size: int, step_size: int):
 def _upload_text_to_vector_store(
         vs: VectorStore,
         embedding_model_name: str,
-        text_file_bytes: BytesIO,
+        text_file_bytes: io.BytesIO,
         text_file_name: str,
         text_chunk_size: int = -1,
         text_chunk_overlap: int = 0,
@@ -87,60 +96,71 @@ def _upload_text_to_vector_store(
 
 with st.sidebar:
     st.header('Search Configuration')
-    use_opensearch = st.toggle(
-        'Use OpenSearch',
-        config.prefer_opensearch,
-        help=f'Requires an OpenSearch instance running at {config.opensearch_base_url}. If '
-             f'this toggle is off, all documents are stored in-memory and are lost when '
-             f'the application terminates.'
+    st.toggle(
+        "Use OpenSearch",
+        key=ss.StateKey.USE_OPENSEARCH,
+        help=f"Requires an OpenSearch instance running at {config.opensearch_base_url}. "
+             "If this toggle is off, all documents are stored in an in-memory vector "
+             "store which is lost when the application terminates.",
     )
-    embedding_model = st.selectbox(
-        'Embedding model:',
-        langchain_embeddings.get_available_embeddings(),
-        index=0,
+    st.selectbox(
+        "Embedding model:",
+        available_embeddings,
+        key=ss.StateKey.EMBEDDING_MODEL
     )
-    chunk_size = st.number_input(
+    st.number_input(
         'Text chunk size [characters]:',
-        value=4000,
         min_value=0,
         step=50,
+        key=ss.StateKey.EMBEDDING_CHUNK_SIZE,
         help='Used to split each text file (or PDF page) into smaller chunks for '
              'embedding. A value of `0` will embed each page (or text document) in its '
              'entirety.'
     )
-    chunk_overlap = st.slider(
-        'Text chunk overlap [%]:',
-        value=20,
-        min_value=0,
-        max_value=50,
-        step=5,
-        help='Specifies the percent overlap allowed between text chunks.',
-    ) if chunk_size > 0 else 0
+    if st.session_state[ss.StateKey.EMBEDDING_CHUNK_SIZE] > 0:
+        st.slider(
+            'Text chunk overlap [%]:',
+            min_value=0,
+            max_value=50,
+            step=5,
+            key=ss.StateKey.EMBEDDING_CHUNK_OVERLAP,
+            help='Specifies the percent overlap allowed between text chunks.',
+        )
 
 st.warning(
     'IMPORTANT: When you upload documents, they are embedded _only_ for the '
-    f'selected embedding model (currently `{embedding_model}`). When uploading documents,'
-    f' please be sure to embed your source texts with every model you wish to use.')
+    'selected embedding model (currently '
+    f'`{st.session_state[ss.StateKey.EMBEDDING_MODEL]}`). When uploading documents,'
+    f' please be sure that you embed your source texts with every model you wish to use.'
+)
 
 # Upload text documents to OpenSearch
 #
 uploaded_files = st.file_uploader(
     'Upload files to be added to the application knowledgebase.',
     accept_multiple_files=True,
-    type=['txt', 'md', 'tex', 'pdf'],
+    type=[*config.text_file_types, 'pdf'],
 )
 if len(uploaded_files) and st.button('Embed Text'):
     # Create OpenSearch index if it doesn't already exist
     #
-    with st.spinner(f'Loading `{embedding_model}` embeddings...'):
-        langchain_models.pull_model(embedding_model)
+    with st.spinner('Loading `{}` embeddings...'.format(
+            st.session_state[ss.StateKey.EMBEDDING_MODEL]
+    )):
+        langchain_models.pull_model(st.session_state[ss.StateKey.EMBEDDING_MODEL])
 
-    if use_opensearch:
+    if st.session_state[ss.StateKey.USE_OPENSEARCH]:
         st.text('Ensuring OpenSearch index existence...')
-        langchain_opensearch.ensure_opensearch_index(embedding_model)
-        vector_store = langchain_opensearch.opensearch_doc_vector_store(embedding_model)
+        langchain_opensearch.ensure_opensearch_index(
+            st.session_state[ss.StateKey.EMBEDDING_MODEL]
+        )
+        vector_store = langchain_opensearch.opensearch_doc_vector_store(
+            st.session_state[ss.StateKey.EMBEDDING_MODEL]
+        )
     else:
-        vector_store = langchain_embeddings.get_in_memory_vector_store(embedding_model)
+        vector_store = langchain_embeddings.get_in_memory_vector_store(
+            st.session_state[ss.StateKey.EMBEDDING_MODEL]
+        )
 
     text_upload_progress = st.progress(0)
 
@@ -169,11 +189,17 @@ if len(uploaded_files) and st.button('Embed Text'):
                 chunk_progress = st.progress(0)
                 for chunk_index, _, chunk_count in _upload_text_to_vector_store(
                         vs=vector_store,
-                        embedding_model_name=embedding_model,
+                        embedding_model_name=st.session_state[
+                            ss.StateKey.EMBEDDING_MODEL
+                        ],
                         text_file_bytes=txt_bytes,
                         text_file_name=uploaded_file.name,
-                        text_chunk_size=chunk_size,
-                        text_chunk_overlap=chunk_overlap,
+                        text_chunk_size=st.session_state[
+                            ss.StateKey.EMBEDDING_CHUNK_SIZE
+                        ],
+                        text_chunk_overlap=st.session_state[
+                            ss.StateKey.EMBEDDING_CHUNK_OVERLAP
+                        ],
                         text_page=j + 1,
                 ):
                     chunk_progress.progress(
@@ -188,11 +214,17 @@ if len(uploaded_files) and st.button('Embed Text'):
             chunk_progress = st.progress(0)
             for chunk_index, _, chunk_count in _upload_text_to_vector_store(
                     vs=vector_store,
-                    embedding_model_name=embedding_model,
+                    embedding_model_name=st.session_state[
+                        ss.StateKey.EMBEDDING_MODEL
+                    ],
                     text_file_bytes=uploaded_file,
                     text_file_name=uploaded_file.name,
-                    text_chunk_size=chunk_size,
-                    text_chunk_overlap=chunk_overlap,
+                    text_chunk_size=st.session_state[
+                        ss.StateKey.EMBEDDING_CHUNK_SIZE
+                    ],
+                    text_chunk_overlap=st.session_state[
+                        ss.StateKey.EMBEDDING_CHUNK_OVERLAP
+                    ],
                     text_page=1,
             ):
                 chunk_progress.progress(

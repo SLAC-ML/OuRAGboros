@@ -1,0 +1,18 @@
+apiVersion: v1
+data:
+  HUGGINGFACE_EMBEDDING_MODEL_DEFAULT: '{{ .Values.huggingfaceEmbeddingModelDefault }}'
+  HUGGINGFACE_FINETUNED_EMBEDDING_MODEL: '{{ .Values.huggingfaceFinetunedEmbeddingModel }}'
+  OLLAMA_BASE_URL: '{{ .Values.ollamaBaseUrl }}'
+  OLLAMA_MODEL_DEFAULT: '{{ .Values.ollamaModelDefault }}'
+  OPENAI_API_KEY: '{{ .Values.openAiApiKey }}'
+  OPENSEARCH_BASE_URL: '{{ .Values.opensearchBaseUrl }}'
+  OPENSEARCH_INDEX_PREFIX: '{{ .Values.opensearchIndexPrefix }}'
+  OPENSEARCH_JAVA_OPTS: '{{ .Values.opensearchJavaOpts }}'
+  PDF_PARSER_MODEL: '{{ .Values.pdfParserModel }}'
+  PREFER_OPENSEARCH: '{{ .Values.preferOpensearch }}'
+  SENTENCE_TRANSFORMERS_HOME: '{{ .Values.sentenceTransformersHome }}'
+kind: ConfigMap
+metadata:
+  labels:
+    io.kompose.service: opensearch-kubernetes-env
+  name: kubernetes-env

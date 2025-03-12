@@ -9,6 +9,21 @@ import dotenv
 dotenv.load_dotenv('.default.env')
 
 
+class Env(str):
+    """
+    Contains all environment variable names used in this application.
+    """
+    OLLAMA_BASE_URL = 'OLLAMA_BASE_URL'
+    OLLAMA_MODEL_DEFAULT = 'OLLAMA_MODEL_DEFAULT'
+    OPENAI_API_KEY = 'OPENAI_API_KEY'
+    SENTENCE_TRANSFORMERS_HOME = 'SENTENCE_TRANSFORMERS_HOME'
+    HUGGINGFACE_EMBEDDING_MODEL_DEFAULT = 'HUGGINGFACE_EMBEDDING_MODEL_DEFAULT'
+    HUGGINGFACE_FINETUNED_EMBEDDING_MODEL = 'HUGGINGFACE_FINETUNED_EMBEDDING_MODEL'
+    PDF_PARSER_MODEL = 'PDF_PARSER_MODEL'
+    PREFER_OPENSEARCH = 'PREFER_OPENSEARCH'
+    OPENSEARCH_BASE_URL = 'OPENSEARCH_BASE_URL'
+    OPENSEARCH_INDEX_PREFIX = 'OPENSEARCH_INDEX_PREFIX'
+
 def _bool_from_env(env: str) -> bool:
     value = os.getenv(env).lower() if os.getenv(env) else None
 
@@ -22,20 +37,21 @@ def _bool_from_env(env: str) -> bool:
     else:
         raise ValueError(
             f'Boolean value expected for environment variable {env}. Choose from '
-            f'{true_vals} or {false_vals}.'
+            f'{true_vals} or {false_vals}. Value given was ${value}.'
         )
 
 
 # LLM Configuration
 #
-ollama_base_url = os.getenv('OLLAMA_BASE_URL')
-default_model = os.getenv('OLLAMA_MODEL_DEFAULT')
+ollama_base_url = os.getenv(Env.OLLAMA_BASE_URL)
+default_model = os.getenv(Env.OLLAMA_MODEL_DEFAULT)
 
-openai_api_key = os.getenv('OPENAI_API_KEY')
+openai_api_key = os.getenv(Env.OPENAI_API_KEY)
 
 default_prompt = (
     "You are a helpful assistant. Output answers in Markdown. Use $ and $$ to surround "
-    "mathematical formulas."
+    "mathematical formulas. Try to tie your answer to the provided list of sources. Say "
+    "you don't know if you can't. Be as concise as possible."
 )
 
 test_text = r"""
@@ -62,16 +78,18 @@ where $R$ is a $k \times k$ matrix.
 # Local embeddings cache folder. Only used for HuggingFace embeddings.
 #
 # See https://python.langchain.com/api_reference/community/embeddings/langchain_community.embeddings.huggingface.HuggingFaceEmbeddings.html#langchain_community.embeddings.huggingface.HuggingFaceEmbeddings.cache_folder
-huggingface_model_cache_folder = os.getenv('SENTENCE_TRANSFORMERS_HOME')
-huggingface_default_embedding_model = os.getenv('HUGGINGFACE_EMBEDDING_MODEL_DEFAULT')
-huggingface_finetuned_embedding_model = os.getenv('HUGGINGFACE_FINETUNED_EMBEDDING_MODEL')
-pdf_parser_model = os.getenv('PDF_PARSER_MODEL')
+huggingface_model_cache_folder = os.getenv(Env.SENTENCE_TRANSFORMERS_HOME)
+huggingface_default_embedding_model = os.getenv(Env.HUGGINGFACE_EMBEDDING_MODEL_DEFAULT)
+huggingface_finetuned_embedding_model = os.getenv(
+    Env.HUGGINGFACE_FINETUNED_EMBEDDING_MODEL
+)
+pdf_parser_model = os.getenv(Env.PDF_PARSER_MODEL)
 
 # Vector store configuration
 #
-prefer_opensearch = _bool_from_env('PREFER_OPENSEARCH')
-opensearch_base_url = os.getenv('OPENSEARCH_BASE_URL')
-opensearch_index_prefix = os.getenv('OPENSEARCH_INDEX_PREFIX')
+prefer_opensearch = _bool_from_env(Env.PREFER_OPENSEARCH)
+opensearch_base_url = os.getenv(Env.OPENSEARCH_BASE_URL)
+opensearch_index_prefix = os.getenv(Env.OPENSEARCH_INDEX_PREFIX)
 
 
 def opensearch_index_settings(vector_size: int):
@@ -110,3 +128,6 @@ def opensearch_index_settings(vector_size: int):
             }
         }
     }
+
+
+text_file_types = ['txt', 'md', 'text']
