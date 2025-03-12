@@ -81,8 +81,7 @@ tag so that Kubernetes pulls the new version. You'll also want to
 [tag the release](https://git-scm.com/book/en/v2/Git-Basics-Tagging) to a specific
 [semantic version](https://semver.org/). Here are the steps for this:
 
-1) Update `docker-compose.yml` with the new desired release number (we demonstrate 
-   with `0.0.2`):
+1) Update `docker-compose.yml` with the new desired release number (e.g., `0.0.2`):
 
 ```yaml
   ouragboros:
@@ -90,8 +89,15 @@ tag so that Kubernetes pulls the new version. You'll also want to
     image: schrodingersket/ouragboros:0.0.2
 ```
 
-2) Run the `kompose` and `helm upgrade` commands from above.
-3) Commit the updated Helm config changes and tag the release:
+2) Build and push the new Docker images:
+
+```shell
+$ docker-compose build --push
+```
+
+3) Re-run the `kompose` command from above.
+   
+4) Commit the updated Helm config changes and tag the new release:
 
 ```sh
 $ git add docker-compose docker-compose.yml
@@ -100,7 +106,7 @@ $ git tag v0.0.2
 $ git push --tags
 ```
 
-This procedure lays the groundwork for integrating with CI/CD pipelines down the road.
+5) Deploy the new application version by re-running the `helm upgrade` command from above.
 
 #### Minikube
 
