@@ -1,16 +1,15 @@
 import io
 import itertools
-import pathlib
 import time
 
 import streamlit as st
+import langchain_community.vectorstores.opensearch_vector_search as os_vs
 
 import lib.config as config
 
 import lib.streamlit.nav as nav
 import lib.streamlit.session_state as ss
 
-import lib.langchain.embeddings as langchain_embeddings
 import lib.langchain.llm as langchain_llm
 import lib.langchain.models as langchain_models
 import lib.langchain.opensearch as langchain_opensearch
@@ -32,6 +31,7 @@ available_llms, available_embeddings = ss.init()
 st.title(":snake: LangChain OuRAGboros")
 
 
+
 def perform_document_retrieval(
         query: str,
         model: str,
@@ -50,15 +50,12 @@ def perform_document_retrieval(
     :param use_opensearch_vectorstore:
     :return:
     """
+    vs = ss.get_vector_store(use_opensearch_vectorstore, model)
     if use_opensearch_vectorstore:
-        import langchain_community.vectorstores.opensearch_vector_search as os_vs
-
         st.text("Ensuring OpenSearch index existence...")
         langchain_opensearch.ensure_opensearch_index(model)
 
-        return langchain_opensearch.opensearch_doc_vector_store(
-            st.session_state[ss.StateKey.EMBEDDING_MODEL]
-        ).similarity_search_with_score(
+        return vs.similarity_search_with_score(
             query=query,
             k=k,
             score_threshold=score_threshold,
@@ -68,27 +65,13 @@ def perform_document_retrieval(
             space_type="cosinesimil"
         )
     else:
-        # Retrieve in-memory vector store if possible so that we keep documents around
-        # for the life of the application.
-        #
-        # NOTE: This does prevent the session state from getting pickled, and so the
-        # session state will NOT be serializable by default. See
-        # https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state#serializable-session-state
-        # for more information.
-        #
         # LangChain's in-memory vector store uses cosine similarity by default.
         # See: https://python.langchain.com/api_reference/core/vectorstores/langchain_core.vectorstores.in_memory.InMemoryVectorStore.html#langchain_core.vectorstores.in_memory.InMemoryVectorStore
         #
-        if not st.session_state[ss.StateKey.VECTOR_STORE]:
-            st.session_state[ss.StateKey.VECTOR_STORE] = (
-                langchain_embeddings.get_in_memory_vector_store(model)
-            )
         # We add 1 to the score to keep formatting consistent with OpenSearch
         #
         return [
-            (d, s + 1) for (d, s) in st.session_state[
-                ss.StateKey.VECTOR_STORE
-            ].similarity_search_with_score(query, k=k)
+            (d, s + 1) for (d, s) in vs.similarity_search_with_score(query, k=k)
             if s + 1 >= score_threshold
         ]
 
@@ -153,7 +136,7 @@ if search_query:
         ]
 
 
-@st.fragment
+# @st.fragment
 def _render_source_docs(docs):
     """
     Renders source documents used to generate LLM system_message.
@@ -167,20 +150,15 @@ def _render_source_docs(docs):
     for i, (doc, score) in enumerate(docs):
         if i:
             st.divider()
-        st.subheader(
-            "{}_page{}_chunk{}_overlap{}".format(
-                pathlib.Path(doc.metadata["source"]).name,
-                doc.metadata["page_number"],
-                doc.metadata["chunk_index"],
-                doc.metadata["chunk_overlap_percent"],
-            )
-        )
+        st.subheader(ss.document_file_name(doc))
+
         st.download_button(
             label="Download as text",
             data=doc.page_content,
-            file_name=pathlib.Path(doc.metadata["source"]).name,
+            file_name=ss.document_file_name(doc),
             mime="text/plain",
-            key=pathlib.Path(doc.id)
+            key=doc.id,
+            on_click="ignore"
         )
         st.markdown(f"**Score:** {score}")
         st.markdown('**Document Text:**')
@@ -234,8 +212,9 @@ if (
             ))
         else:
             st.warning(
-                "No document matches found. Try a new query or lower the score threshold "
-                "for a more contextually relevant response."
+                "No document matches found using embedding model "
+                f"`{st.session_state[ss.StateKey.EMBEDDING_MODEL]}`. Try a new query or "
+                "lower the score threshold for a more contextually relevant response."
             )
 
         context = [

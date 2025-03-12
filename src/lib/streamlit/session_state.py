@@ -1,12 +1,31 @@
 import json
+import pathlib
 
 import streamlit as st
 
+from langchain_core.documents import Document
+from langchain_core.vectorstores import VectorStore
+
 import lib.langchain.embeddings as langchain_embeddings
 import lib.langchain.llm as langchain_llm
+import lib.langchain.opensearch as langchain_opensearch
 
 import lib.config as config
 
+def document_file_name(doc: Document):
+    """
+    Generates a unique file name for a Document object based on uploaded metadata.
+    :param doc:
+    :return:
+    """
+    source_path = pathlib.Path(doc.metadata["source"])
+    return "{}_page{}_chunk{}_overlap{}{}".format(
+        source_path.stem,
+        doc.metadata["page_number"],
+        doc.metadata["chunk_index"],
+        doc.metadata["chunk_overlap_percent"],
+        source_path.suffix
+    )
 
 class StateKey(str):
     """
@@ -26,7 +45,6 @@ class StateKey(str):
     SYSTEM_MESSAGE = "system_message"
     USE_OPENSEARCH = "use_opensearch"
     USER_CONTEXT = "user_context"
-    VECTOR_STORE = "vector_store"
 
 
 def init() -> tuple[list[str], list[str]]:
@@ -54,13 +72,17 @@ def init() -> tuple[list[str], list[str]]:
         (StateKey.SEARCH_QUERY, ""),
         (StateKey.USER_CONTEXT, []),
         (StateKey.USE_OPENSEARCH, config.prefer_opensearch),
-        (StateKey.VECTOR_STORE, None),
     ]
     for state_var, state_val in default_session_state:
         if state_var not in st.session_state:
             st.session_state[state_var] = state_val
+        else:
+            # https://stackoverflow.com/questions/74968179/session-state-is-reset-in-streamlit-multipage-app
+            #
+            st.session_state[state_var] = st.session_state[state_var]
 
     return available_llms, available_embeddings
+
 
 def dump_session_state():
     state = {}
@@ -81,7 +103,25 @@ def dump_session_state():
         state[key] = st.session_state[key]
 
     state[StateKey.RAG_DOCS] = [
-        (doc.id, doc.page_content) for doc in st.session_state[StateKey.RAG_DOCS]
+        (document_file_name(doc), doc.page_content)
+        for doc, score in st.session_state[StateKey.RAG_DOCS]
     ]
 
     return json.dumps(state)
+
+
+@st.cache_resource
+def get_vector_store(use_opensearch_vectorstore: bool, model: str) -> VectorStore:
+    """
+    Fetches a particular vector store implementation for a specific model. We annotate
+    this with st.cache_resource so that the in-memory vector store is retained for the
+    life of the application.
+
+    :param use_opensearch_vectorstore:
+    :param model:
+    :return:
+    """
+    if use_opensearch_vectorstore:
+        return langchain_opensearch.opensearch_doc_vector_store(model)
+    else:
+        return langchain_embeddings.get_in_memory_vector_store(model)

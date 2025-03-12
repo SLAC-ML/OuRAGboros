@@ -9,7 +9,6 @@ from langchain_core.vectorstores import VectorStore
 import lib.streamlit.nav as nav
 import lib.streamlit.session_state as ss
 
-import lib.langchain.embeddings as langchain_embeddings
 import lib.langchain.models as langchain_models
 import lib.langchain.opensearch as langchain_opensearch
 
@@ -149,16 +148,13 @@ if len(uploaded_files) and st.button('Embed Text'):
     )):
         langchain_models.pull_model(st.session_state[ss.StateKey.EMBEDDING_MODEL])
 
+    vector_store = ss.get_vector_store(
+        st.session_state[ss.StateKey.USE_OPENSEARCH],
+        st.session_state[ss.StateKey.EMBEDDING_MODEL]
+    )
     if st.session_state[ss.StateKey.USE_OPENSEARCH]:
         st.text('Ensuring OpenSearch index existence...')
         langchain_opensearch.ensure_opensearch_index(
-            st.session_state[ss.StateKey.EMBEDDING_MODEL]
-        )
-        vector_store = langchain_opensearch.opensearch_doc_vector_store(
-            st.session_state[ss.StateKey.EMBEDDING_MODEL]
-        )
-    else:
-        vector_store = langchain_embeddings.get_in_memory_vector_store(
             st.session_state[ss.StateKey.EMBEDDING_MODEL]
         )
 
