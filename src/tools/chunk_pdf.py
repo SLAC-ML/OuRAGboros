@@ -1,7 +1,14 @@
+"""
+This file creates the `chunk_pdf` uv tool (https://docs.astral.sh/uv/concepts/tools/),
+which is used to parse an academic paper PDF from the command line via Nougat
+(https://github.com/facebookresearch/nougat).
+
+Run `uv run chunk_pdf` on the command line for usage instructions.
+"""
 from pathlib import Path
 import argparse
 
-from lib.pdf import NougatExtractor
+from lib.pdf.nougat_extractor import NougatExtractor
 from tools.constants import FILENAME_ARG, OUTPATH_ARG
 
 parser = argparse.ArgumentParser(

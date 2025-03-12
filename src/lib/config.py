@@ -1,3 +1,7 @@
+"""
+This file contains all dynamic configuration for the application (API keys, server
+locations, etc.).
+"""
 import os
 
 import dotenv
@@ -26,6 +30,8 @@ def _bool_from_env(env: str) -> bool:
 #
 ollama_base_url = os.getenv('OLLAMA_BASE_URL')
 default_model = os.getenv('OLLAMA_MODEL_DEFAULT')
+
+openai_api_key = os.getenv('OPENAI_API_KEY')
 
 default_prompt = (
     "You are a helpful assistant. Output answers in Markdown. Use $ and $$ to surround "

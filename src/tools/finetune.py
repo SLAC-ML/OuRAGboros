@@ -1,3 +1,9 @@
+"""
+This file creates the `finetune` uv tool (https://docs.astral.sh/uv/concepts/tools/),
+which is used to fine-tune a particular embedding model on a provided text file.
+
+Run `uv run finetune` on the command line for usage instructions.
+"""
 import os
 import argparse
 

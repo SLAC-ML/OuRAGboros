@@ -8,7 +8,10 @@ from langchain_core.vectorstores import VectorStore
 
 import lib.config as config
 import lib.nav as nav
-import lib.langchain_impl as langchain_impl
+
+import lib.langchain.embeddings as langchain_embeddings
+import lib.langchain.models as langchain_models
+import lib.langchain.opensearch as langchain_opensearch
 
 st.set_page_config(
     page_title='Document Embedding',
@@ -93,7 +96,7 @@ with st.sidebar:
     )
     embedding_model = st.selectbox(
         'Embedding model:',
-        langchain_impl.get_available_embeddings(),
+        langchain_embeddings.get_available_embeddings(),
         index=0,
     )
     chunk_size = st.number_input(
@@ -107,10 +110,10 @@ with st.sidebar:
     )
     chunk_overlap = st.slider(
         'Text chunk overlap [%]:',
-        value=50,
+        value=20,
         min_value=0,
-        max_value=90,
-        step=10,
+        max_value=50,
+        step=5,
         help='Specifies the percent overlap allowed between text chunks.',
     ) if chunk_size > 0 else 0
 
@@ -130,14 +133,14 @@ if len(uploaded_files) and st.button('Embed Text'):
     # Create OpenSearch index if it doesn't already exist
     #
     with st.spinner(f'Loading `{embedding_model}` embeddings...'):
-        langchain_impl.pull_model(embedding_model)
+        langchain_models.pull_model(embedding_model)
 
     if use_opensearch:
         st.text('Ensuring OpenSearch index existence...')
-        langchain_impl.ensure_opensearch_index(embedding_model)
-        vector_store = langchain_impl.opensearch_doc_vector_store(embedding_model)
+        langchain_opensearch.ensure_opensearch_index(embedding_model)
+        vector_store = langchain_opensearch.opensearch_doc_vector_store(embedding_model)
     else:
-        vector_store = langchain_impl.get_in_memory_vector_store(embedding_model)
+        vector_store = langchain_embeddings.get_in_memory_vector_store(embedding_model)
 
     text_upload_progress = st.progress(0)
 
@@ -148,9 +151,11 @@ if len(uploaded_files) and st.button('Embed Text'):
         )
 
         if pathlib.Path(uploaded_file.name).suffix.lower() == '.pdf':
-            import lib.pdf as pdf
+            # Lazy import since the imports this class brings in are a little hefty.
+            #
+            from lib.pdf.nougat_extractor import NougatExtractor
 
-            pdf_extractor = pdf.NougatExtractor()
+            pdf_extractor = NougatExtractor()
             pdf_progress = st.progress(0)
 
             for j, (txt_bytes, txt_name, pages) in enumerate(

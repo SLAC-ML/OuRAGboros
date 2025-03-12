@@ -11,3 +11,5 @@ opensearchIndexPrefix: "ouragboros"
 preferOpensearch: "true"
 
 opensearchJavaOpts: "-Xms512m -Xmx512m"
+
+openAiApiKey: ""

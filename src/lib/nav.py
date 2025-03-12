@@ -1,3 +1,8 @@
+"""
+This file overwrites Streamlit's default sidebar page view to make it a bit cleaner for
+users.
+"""
+
 import streamlit as st
 
 def pages():

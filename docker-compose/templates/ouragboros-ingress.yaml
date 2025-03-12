@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ouragboros-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+  labels:
+    name: ouragboros-ingress
+spec:
+  rules:
+    - host: "mli.sdf.slac.stanford.edu"
+      http:
+        paths:
+          - pathType: Prefix
+            path: /llm-logbook(/|$)(.*)
+            backend:
+              service:
+                name: ouragboros-tcp
+                port:
+                  number: 8501

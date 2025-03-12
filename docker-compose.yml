@@ -59,6 +59,7 @@ services:
       - "PREFER_OPENSEARCH=${PREFER_OPENSEARCH:-{{ .Values.preferOpensearch }}}"
       - "HUGGINGFACE_EMBEDDING_MODEL_DEFAULT=${HUGGINGFACE_EMBEDDING_MODEL_DEFAULT:-{{ .Values.huggingfaceEmbeddingModelDefault }}}"
       - "HUGGINGFACE_FINETUNED_EMBEDDING_MODEL=${HUGGINGFACE_FINETUNED_EMBEDDING_MODEL:-{{ .Values.huggingfaceFinetunedEmbeddingModel }}}"
+      - "OPENAI_API_KEY=${OPENAI_API_KEY:-{{ .Values.openAiApiKey }}}"
     volumes:
       - ouragboros_models:/app/models
     restart: "always"

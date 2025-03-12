@@ -1,9 +1,10 @@
+import logging
+import os
+import io
+
 from pathlib import Path
 from typing import Optional, Iterable, Tuple, BinaryIO, List
 from collections import defaultdict
-import io
-import logging
-import os
 
 import pymupdf
 import torch
@@ -18,11 +19,12 @@ from transformers import (
 )
 
 import lib.config as config
+from lib.pdf.extractor import PDFExtractor
 
 
-# Custon Stopping Citeria
+# Custom Stopping Criteria
 # This is from the Nougat tutorial
-class RunningVarTorch:
+class _RunningVarTorch:
     def __init__(self, L=15, norm=False):
         self.values = None
         self.L = L
@@ -46,12 +48,12 @@ class RunningVarTorch:
             return torch.var(self.values, 1)
 
 
-class StoppingCriteriaScores(StoppingCriteria):
+class _StoppingCriteriaScores(StoppingCriteria):
     def __init__(self, threshold: float = 0.015, window_size: int = 200):
         super().__init__()
         self.threshold = threshold
-        self.vars = RunningVarTorch(norm=True)
-        self.varvars = RunningVarTorch(L=window_size)
+        self.vars = _RunningVarTorch(norm=True)
+        self.varvars = _RunningVarTorch(L=window_size)
         self.stop_inds = defaultdict(int)
         self.stopped = defaultdict(bool)
         self.size = 0
@@ -79,17 +81,6 @@ class StoppingCriteriaScores(StoppingCriteria):
                 self.stop_inds[b] = 0
                 self.stopped[b] = False
         return all(self.stopped.values()) and len(self.stopped) > 0
-
-
-class PDFExtractor:
-    def extract_text(
-            self,
-            pdf_bytes: BinaryIO,
-            filename: str,
-            outpath: Optional[Path] = None,
-            page_range: Optional[List[int]] = None
-    ) -> Iterable[Tuple[io.BytesIO, str, List[int]]]:
-        raise NotImplementedError()
 
 
 class NougatExtractor(PDFExtractor):
@@ -158,7 +149,7 @@ class NougatExtractor(PDFExtractor):
                 bad_words_ids=[[processor.tokenizer.unk_token_id]],
                 return_dict_in_generate=True,
                 output_scores=True,
-                stopping_criteria=StoppingCriteriaList([StoppingCriteriaScores()]),
+                stopping_criteria=StoppingCriteriaList([_StoppingCriteriaScores()]),
             )
 
             # Decode and post-process the generated output for the current page

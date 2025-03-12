@@ -3,8 +3,12 @@ from pathlib import Path
 import streamlit as st
 
 import lib.config as config
-import lib.langchain_impl as langchain_impl
 import lib.nav as nav
+
+import lib.langchain.embeddings as langchain_embeddings
+import lib.langchain.llm as langchain_llm
+import lib.langchain.models as langchain_models
+import lib.langchain.opensearch as langchain_opensearch
 
 st.set_page_config(
     page_title="OuRAGboros",
@@ -45,9 +49,9 @@ def perform_document_retrieval(
         import langchain_community.vectorstores.opensearch_vector_search as os_vs
 
         st.text("Ensuring OpenSearch index existence...")
-        langchain_impl.ensure_opensearch_index(model)
+        langchain_opensearch.ensure_opensearch_index(model)
 
-        return langchain_impl.opensearch_doc_vector_store(
+        return langchain_opensearch.opensearch_doc_vector_store(
             embedding_model).similarity_search_with_score(
             query=query,
             k=k,
@@ -61,7 +65,7 @@ def perform_document_retrieval(
         # Uses cosine similarity by default.
         # See: https://python.langchain.com/api_reference/core/vectorstores/langchain_core.vectorstores.in_memory.InMemoryVectorStore.html#langchain_core.vectorstores.in_memory.InMemoryVectorStore
         #
-        vector_store = langchain_impl.get_in_memory_vector_store(model)
+        vector_store = langchain_embeddings.get_in_memory_vector_store(model)
         # We add 1 to the score to keep formatting consistent with OpenSearch
         return [
             (d, s + 1) for (d, s) in vector_store.similarity_search_with_score(query, k=k)
@@ -80,17 +84,17 @@ with st.sidebar:
     )
     embedding_model = st.selectbox(
         "Embedding model:",
-        langchain_impl.get_available_embeddings(),
+        langchain_embeddings.get_available_embeddings(),
         index=0,
     )
     llm_model = st.selectbox(
         "LLM:",
-        langchain_impl.get_available_llms(),
+        langchain_llm.get_available_llms(),
         index=0,
     )
     query_result_score_inf = st.slider(
         "Set the document match score threshold:",
-        value=1.0,
+        value=0.7,
         min_value=0.0,
         max_value=2.0,
         help="Score is computed using cosine similarity plus 1 to ensure a non-negative "
@@ -98,7 +102,7 @@ with st.sidebar:
     )
     return_documents = st.slider(
         "Set the maximum retrieved documents:",
-        value=3,
+        value=5,
         min_value=1,
         max_value=15,
         step=1,
@@ -137,12 +141,11 @@ def _render_source_docs(docs):
             file_name=Path(doc.metadata["source"]).name,
             mime="text/plain",
             key=Path(doc.id)
-
         )
         st.markdown(f"**Score:** {score}")
         st.markdown('**Document Text:**')
         st.code('{}{}'.format(
-            doc.page_content[:500],
+            doc.page_content[:1000],
             '... [download file to see more]' if len(doc.page_content) > 100 else ''
         ),
             language=None,
@@ -163,10 +166,10 @@ if st.session_state.search_query and llm_model:
         st.text(st.session_state.search_query)
 
     with st.spinner(f"Loading `{embedding_model}` embeddings..."):
-        langchain_impl.pull_model(embedding_model)
+        langchain_models.pull_model(embedding_model)
 
     with st.spinner(f"Loading `{llm_model}` LLM..."):
-        langchain_impl.pull_model(llm_model)
+        langchain_models.pull_model(llm_model)
 
     with st.chat_message("ai"):
         st.text("Searching knowledge base for relevant documentation...")
@@ -197,7 +200,7 @@ if st.session_state.search_query and llm_model:
             doc.page_content for doc, score in st.session_state.documents
         ])
 
-        st.session_state.llm_response = langchain_impl.ask_llm(
+        st.session_state.llm_response = langchain_llm.query_llm(
             llm_model,
             llm_prompt,
             st.session_state.search_query,
