@@ -65,6 +65,12 @@ generation. To install the chart (which deploys services to a Kubernetes cluster
 $ helm install ouragboros ./docker-compose --namespace ouragboros --create-namespace
 ```
 
+To upgrade an existing installation:
+
+```sh
+$ helm upgrade ouragboros ./docker-compose --namespace ouragboros
+```
+
 Helm has a [cheatsheet](https://helm.sh/docs/intro/cheatsheet/) that lists some useful
 commands for managing an application through Helm.
 
