@@ -74,6 +74,34 @@ $ helm upgrade ouragboros ./docker-compose --namespace ouragboros
 Helm has a [cheatsheet](https://helm.sh/docs/intro/cheatsheet/) that lists some useful
 commands for managing an application through Helm.
 
+##### Releasing
+
+When releasing a new application version, you'll need to update the `ouragboros` image
+tag so that Kubernetes pulls the new version. You'll also want to 
+[tag the release](https://git-scm.com/book/en/v2/Git-Basics-Tagging) to a specific
+[semantic version](https://semver.org/). Here are the steps for this:
+
+1) Update `docker-compose.yml` with the new desired release number (we demonstrate 
+   with `0.0.2`):
+
+```yaml
+  ouragboros:
+    build: .
+    image: schrodingersket/ouragboros:0.0.2
+```
+
+2) Run the `kompose` and `helm upgrade` commands from above.
+3) Commit the updated Helm config changes and tag the release:
+
+```sh
+$ git add docker-compose docker-compose.yml
+$ git commit -m '0.0.2'
+$ git tag v0.0.2
+$ git push --tags
+```
+
+This procedure lays the groundwork for integrating with CI/CD pipelines down the road.
+
 #### Minikube
 
 This Kubernetes deployment was developed and tested using 
