@@ -253,7 +253,7 @@ if (
         st.download_button(
             "Download session data",
             ss.dump_session_state(),
-            file_name=f"ouragboros_{time.time()}.json",
+            file_name=f"ouragboros_session_data_{time.time()}.json",
             on_click="ignore",
             mime="application/json",
         )
