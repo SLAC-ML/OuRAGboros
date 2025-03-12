@@ -130,4 +130,4 @@ def opensearch_index_settings(vector_size: int):
     }
 
 
-text_file_types = ['txt', 'md', 'text']
+text_file_types = ['txt', 'md', 'tex']
