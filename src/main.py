@@ -106,7 +106,7 @@ with st.sidebar:
     st.slider(
         "Set the maximum retrieved documents:",
         min_value=1,
-        max_value=15,
+        max_value=50,
         step=1,
         help="Sets an upper bound on the number of documents to return.",
         key=ss.StateKey.MAX_DOCUMENT_COUNT
