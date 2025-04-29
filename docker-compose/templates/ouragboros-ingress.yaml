@@ -1,21 +1,23 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ouragboros-ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    nginx.ingress.kubernetes.io/enable-cors: "true"
+    kompose.cmd: kompose convert -c
+    kompose.service.expose: "true"
+    kompose.version: 1.35.0 (HEAD)
+    kompose.volume.size: 3Gi
+    metallb.universe.tf/address-pool: sdf-services
   labels:
-    name: ouragboros-ingress
+    io.kompose.service: ouragboros
+  name: ouragboros
 spec:
   rules:
-    - host: "mli.sdf.slac.stanford.edu"
-      http:
+    - http:
         paths:
-          - pathType: Prefix
-            path: /llm-logbook(/|$)(.*)
-            backend:
+          - backend:
               service:
-                name: ouragboros-tcp
+                name: ouragboros
                 port:
                   number: 8501
+            path: /
+            pathType: Prefix

@@ -1,0 +1,407 @@
+---
+# Source: docker-compose/templates/kubernetes-env-configmap.yaml
+apiVersion: v1
+data:
+  HUGGINGFACE_EMBEDDING_MODEL_DEFAULT: 'thellert/physbert_cased'
+  HUGGINGFACE_FINETUNED_EMBEDDING_MODEL: 'ouragboros_finetuned'
+  OLLAMA_BASE_URL: 'http://ollama:11434'
+  OLLAMA_MODEL_DEFAULT: 'ollama:llama3.1'
+  OPENAI_API_KEY: ''
+  OPENSEARCH_BASE_URL: 'http://opensearch:9200'
+  OPENSEARCH_INDEX_PREFIX: 'ouragboros'
+  OPENSEARCH_JAVA_OPTS: '-Xms512m -Xmx512m'
+  PDF_PARSER_MODEL: 'facebook/nougat-small'
+  PREFER_OPENSEARCH: 'true'
+  SENTENCE_TRANSFORMERS_HOME: 'models'
+kind: ConfigMap
+metadata:
+  labels:
+    io.kompose.service: opensearch-kubernetes-env
+  name: kubernetes-env
+---
+# Source: docker-compose/templates/ollama-data-persistentvolumeclaim.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    io.kompose.service: ollama-data
+  name: ollama-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+# Source: docker-compose/templates/opensearch-data-persistentvolumeclaim.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    io.kompose.service: opensearch-data
+  name: opensearch-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Source: docker-compose/templates/ouragboros-models-persistentvolumeclaim.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    io.kompose.service: ouragboros-models
+  name: ouragboros-models
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+---
+# Source: docker-compose/templates/ollama-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c
+    kompose.service.type: ClusterIP
+    kompose.version: 1.35.0 (HEAD)
+    kompose.volume.size: 5Gi
+  labels:
+    io.kompose.service: ollama
+  name: ollama
+spec:
+  ports:
+    - name: "11434"
+      port: 11434
+      targetPort: 11434
+  selector:
+    io.kompose.service: ollama
+  type: ClusterIP
+---
+# Source: docker-compose/templates/opensearch-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c
+    kompose.service.type: ClusterIP
+    kompose.version: 1.35.0 (HEAD)
+    kompose.volume.size: 1Gi
+  labels:
+    io.kompose.service: opensearch
+  name: opensearch
+spec:
+  ports:
+    - name: "9200"
+      port: 9200
+      targetPort: 9200
+  selector:
+    io.kompose.service: opensearch
+  type: ClusterIP
+---
+# Source: docker-compose/templates/ouragboros-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c
+    kompose.service.expose: "true"
+    kompose.version: 1.35.0 (HEAD)
+    kompose.volume.size: 3Gi
+    metallb.universe.tf/address-pool: sdf-services
+  labels:
+    io.kompose.service: ouragboros
+  name: ouragboros
+spec:
+  ports:
+    - name: "8501"
+      port: 8501
+      targetPort: 8501
+  selector:
+    io.kompose.service: ouragboros
+---
+# Source: docker-compose/templates/ollama-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c
+    kompose.service.type: ClusterIP
+    kompose.version: 1.35.0 (HEAD)
+    kompose.volume.size: 5Gi
+  labels:
+    io.kompose.service: ollama
+  name: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: ollama
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -c
+        kompose.service.type: ClusterIP
+        kompose.version: 1.35.0 (HEAD)
+        kompose.volume.size: 5Gi
+      labels:
+        io.kompose.service: ollama
+    spec:
+      containers:
+        - env:
+            - name: OLLAMA_KEEP_ALIVE
+              value: 24h
+          image: ollama/ollama:0.5.11
+          name: ollama
+          ports:
+            - containerPort: 11434
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /root/.ollama
+              name: ollama-data
+      restartPolicy: Always
+      volumes:
+        - name: ollama-data
+          persistentVolumeClaim:
+            claimName: ollama-data
+---
+# Source: docker-compose/templates/opensearch-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c
+    kompose.service.type: ClusterIP
+    kompose.version: 1.35.0 (HEAD)
+    kompose.volume.size: 1Gi
+  labels:
+    io.kompose.service: opensearch
+  name: opensearch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: opensearch
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -c
+        kompose.service.type: ClusterIP
+        kompose.version: 1.35.0 (HEAD)
+        kompose.volume.size: 1Gi
+      labels:
+        io.kompose.service: opensearch
+    spec:
+      containers:
+        - env:
+            - name: DISABLE_INSTALL_DEMO_CONFIG
+              value: "true"
+            - name: DISABLE_SECURITY_PLUGIN
+              value: "true"
+            - name: HUGGINGFACE_EMBEDDING_MODEL_DEFAULT
+              valueFrom:
+                configMapKeyRef:
+                  key: HUGGINGFACE_EMBEDDING_MODEL_DEFAULT
+                  name: kubernetes-env
+            - name: HUGGINGFACE_FINETUNED_EMBEDDING_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  key: HUGGINGFACE_FINETUNED_EMBEDDING_MODEL
+                  name: kubernetes-env
+            - name: OLLAMA_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: OLLAMA_BASE_URL
+                  name: kubernetes-env
+            - name: OLLAMA_MODEL_DEFAULT
+              valueFrom:
+                configMapKeyRef:
+                  key: OLLAMA_MODEL_DEFAULT
+                  name: kubernetes-env
+            - name: OPENAI_API_KEY
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENAI_API_KEY
+                  name: kubernetes-env
+            - name: OPENSEARCH_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENSEARCH_BASE_URL
+                  name: kubernetes-env
+            - name: OPENSEARCH_INDEX_PREFIX
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENSEARCH_INDEX_PREFIX
+                  name: kubernetes-env
+            - name: OPENSEARCH_JAVA_OPTS
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENSEARCH_JAVA_OPTS
+                  name: kubernetes-env
+            - name: PDF_PARSER_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  key: PDF_PARSER_MODEL
+                  name: kubernetes-env
+            - name: PREFER_OPENSEARCH
+              valueFrom:
+                configMapKeyRef:
+                  key: PREFER_OPENSEARCH
+                  name: kubernetes-env
+            - name: SENTENCE_TRANSFORMERS_HOME
+              valueFrom:
+                configMapKeyRef:
+                  key: SENTENCE_TRANSFORMERS_HOME
+                  name: kubernetes-env
+            - name: bootstrap.memory_lock
+              value: "true"
+            - name: discovery.type
+              value: single-node
+          image: opensearchproject/opensearch:2.19.0
+          name: opensearch
+          ports:
+            - containerPort: 9200
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /usr/share/opensearch/data
+              name: opensearch-data
+      restartPolicy: Always
+      volumes:
+        - name: opensearch-data
+          persistentVolumeClaim:
+            claimName: opensearch-data
+---
+# Source: docker-compose/templates/ouragboros-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c
+    kompose.service.expose: "true"
+    kompose.version: 1.35.0 (HEAD)
+    kompose.volume.size: 3Gi
+    metallb.universe.tf/address-pool: sdf-services
+  labels:
+    io.kompose.service: ouragboros
+  name: ouragboros
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: ouragboros
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -c
+        kompose.service.expose: "true"
+        kompose.version: 1.35.0 (HEAD)
+        kompose.volume.size: 3Gi
+        metallb.universe.tf/address-pool: sdf-services
+      labels:
+        io.kompose.service: ouragboros
+    spec:
+      containers:
+        - env:
+            - name: HUGGINGFACE_EMBEDDING_MODEL_DEFAULT
+              valueFrom:
+                configMapKeyRef:
+                  key: HUGGINGFACE_EMBEDDING_MODEL_DEFAULT
+                  name: kubernetes-env
+            - name: HUGGINGFACE_FINETUNED_EMBEDDING_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  key: HUGGINGFACE_FINETUNED_EMBEDDING_MODEL
+                  name: kubernetes-env
+            - name: OLLAMA_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: OLLAMA_BASE_URL
+                  name: kubernetes-env
+            - name: OLLAMA_MODEL_DEFAULT
+              valueFrom:
+                configMapKeyRef:
+                  key: OLLAMA_MODEL_DEFAULT
+                  name: kubernetes-env
+            - name: OPENAI_API_KEY
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENAI_API_KEY
+                  name: kubernetes-env
+            - name: OPENSEARCH_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENSEARCH_BASE_URL
+                  name: kubernetes-env
+            - name: OPENSEARCH_INDEX_PREFIX
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENSEARCH_INDEX_PREFIX
+                  name: kubernetes-env
+            - name: OPENSEARCH_JAVA_OPTS
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENSEARCH_JAVA_OPTS
+                  name: kubernetes-env
+            - name: PDF_PARSER_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  key: PDF_PARSER_MODEL
+                  name: kubernetes-env
+            - name: PREFER_OPENSEARCH
+              valueFrom:
+                configMapKeyRef:
+                  key: PREFER_OPENSEARCH
+                  name: kubernetes-env
+            - name: SENTENCE_TRANSFORMERS_HOME
+              valueFrom:
+                configMapKeyRef:
+                  key: SENTENCE_TRANSFORMERS_HOME
+                  name: kubernetes-env
+          image: schrodingersket/ouragboros:0.0.1
+          name: ouragboros
+          ports:
+            - containerPort: 8501
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /app/models
+              name: ouragboros-models
+      restartPolicy: Always
+      volumes:
+        - name: ouragboros-models
+          persistentVolumeClaim:
+            claimName: ouragboros-models
+---
+# Source: docker-compose/templates/ouragboros-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c
+    kompose.service.expose: "true"
+    kompose.version: 1.35.0 (HEAD)
+    kompose.volume.size: 3Gi
+    metallb.universe.tf/address-pool: sdf-services
+  labels:
+    io.kompose.service: ouragboros
+  name: ouragboros
+spec:
+  rules:
+    - http:
+        paths:
+          - backend:
+              service:
+                name: ouragboros
+                port:
+                  number: 8501
+            path: /
+            pathType: Prefix

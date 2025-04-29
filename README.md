@@ -46,9 +46,11 @@ http://localhost:8501 in your favorite browser once everything's running to get 
 > you're probably safe to skip this section unless you've been assigned the task of 
 > deploying this application to a remote server for the multi-user use case.
 
-We use [Kompose](https://kompose.io/) to convert the `docker-compose.yml` file included
-in this project to the corresponding [Helm chart](https://helm.sh/). To generate these 
-files, just run:
+We use [Kompose](https://kompose.io/) in conjunction with 
+[Kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/) to 
+convert the `docker-compose.yml` file included in this project to the corresponding 
+[Helm chart](https://helm.sh/) (and from there, relevant Kubernetes deployment config).
+To generate these files, just run:
 
 ```sh
 $ kompose convert -c
@@ -62,17 +64,12 @@ file is configured to read environment variables from `.kubernetes.env` during c
 generation. To install the chart (which deploys services to a Kubernetes cluster), run:
 
 ```sh
-$ helm install ouragboros ./docker-compose --namespace ouragboros --create-namespace
+$ helm template --values ./docker-compose/values.yaml ./docker-compose > k8s.yaml
+$ kubectl create namespace ouragboros --dry-run=client -o yaml | kubectl apply -f -
+$ kubectl apply --namespace ouragboros -k .
 ```
 
-To upgrade an existing installation:
-
-```sh
-$ helm upgrade ouragboros ./docker-compose --namespace ouragboros
-```
-
-Helm has a [cheatsheet](https://helm.sh/docs/intro/cheatsheet/) that lists some useful
-commands for managing an application through Helm.
+Running these commands will also allow you to upgrade an existing installation.
 
 ##### Releasing
 
@@ -118,7 +115,12 @@ access the main application after installing the Helm chart via:
 $ minikube service ouragboros-tcp --namespace ouragboros
 ```
 
-#### GPU Acceleration
+#### GPU Acceleration [S3DF Kubernetes Cluster]
+
+For any service that needs access to GPU resources, you'll need to add the following
+
+
+#### GPU Acceleration [Local Kubernetes Cluster]
 
 See the [official Kubernetes guide](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
 for the latest documentation. If using NVIDIA drivers, you can install the [relevant Helm

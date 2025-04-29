@@ -44,9 +44,9 @@ services:
     build: .
     image: schrodingersket/ouragboros:0.0.1
     labels:
-      kompose.service.type: LoadBalancer
       kompose.service.expose: "true"
       kompose.volume.size: 3Gi
+      metallb.universe.tf/address-pool: sdf-services # Requests an IP address from the sdf-services subnet pool range
     ports:
       - 8501:8501
     environment:
