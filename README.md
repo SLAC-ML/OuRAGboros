@@ -50,26 +50,28 @@ We use [Kompose](https://kompose.io/) in conjunction with
 [Kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/) to 
 convert the `docker-compose.yml` file included in this project to the corresponding 
 [Helm chart](https://helm.sh/) (and from there, relevant Kubernetes deployment config).
-To generate these files, just run:
+To generate these files (which must be done whenever `docker-compose.yml` is modified), 
+run the following command from the root repository directory:
 
 ```sh
 $ kompose convert -c
+$ helm template --values ./docker-compose/values.yaml ./docker-compose > k8s.yaml
 ```
 
 Default values for this deployment can be found in `docker-compose/values.yaml`, which
 follows the standard [Helm Values Files format](https://helm.sh/docs/chart_template_guide/values_files/).
-This file is unaffected by the `kompose convert` command, so it's safe to modify 
-`docker-compose.yml` and re-generate the Helm chart as needed; the `docker-compose.yml`
-file is configured to read environment variables from `.kubernetes.env` during chart
-generation. To install the chart (which deploys services to a Kubernetes cluster), run:
+The `values.yaml` file is unaffected by the above `kompose convert ...` and `helm 
+template ...` commands, so it's safe to modify `docker-compose.yml` and re-generate the 
+Helm chart as needed; it's also important to keep in mind that the `docker-compose.yml` 
+file is configured to read environment variables from `.kubernetes.env` during chart 
+generation. To install the chart and deploy services to a running Kubernetes cluster, run:
 
 ```sh
-$ helm template --values ./docker-compose/values.yaml ./docker-compose > k8s.yaml
 $ kubectl create namespace ouragboros --dry-run=client -o yaml | kubectl apply -f -
-$ kubectl apply --namespace ouragboros -k .
+$ kubectl apply --namespace ouragboros -k .  # Deploy to new "ouragboros" namespace
 ```
 
-Running these commands will also allow you to upgrade an existing installation.
+Running these commands will modify an existing installation.
 
 ##### Releasing
 
@@ -92,9 +94,9 @@ tag so that Kubernetes pulls the new version. You'll also want to
 $ docker-compose build --push
 ```
 
-3) Re-run the `kompose` command from above.
+3) Re-run the `kompose convert ...` and `helm template ...` commands from above.
    
-4) Commit the updated Helm config changes and tag the new release:
+4) Commit the updated Helm/Kustomize config changes and tag the new release:
 
 ```sh
 $ git add docker-compose docker-compose.yml
@@ -103,24 +105,34 @@ $ git tag v0.0.2
 $ git push --tags
 ```
 
-5) Deploy the new application version by re-running the `helm upgrade` command from above.
+5) Deploy the new application version by re-running the `kubectl apply ...` command 
+   from above (re-running `kubectl create namespace ...` is not necessary unless you 
+   explicitly deleted the `ouragboros` [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/)).
+
+#### S3DF
+
+See [the S3DF wiki](https://s3df.slac.stanford.edu/#/service-compute) for information 
+about acquiring cluster resources.
+
+##### GPU Acceleration
+
+GPU resource allocation in S3DF is handled via resource requests, which are configured
+in `kustomization.yaml`. These resources will automatically be allocated when we
+`kubectl apply ...` to S3DF resources. For examples of current best practices
+for S3DF Kubernetes deployments, see https://github.com/slaclab/slac-k8s-examples.
 
 #### Minikube
 
+[//]: # (TODO: Re-test this after S3DF GPU changes)
 This Kubernetes deployment was developed and tested using 
 [Minikube](https://minikube.sigs.k8s.io/docs/start/). If you're using Minikube, you can
-access the main application after installing the Helm chart via:
+access the main application after installing the Helm chart. Just run:
 
 ```sh
 $ minikube service ouragboros-tcp --namespace ouragboros
 ```
 
-#### GPU Acceleration [S3DF Kubernetes Cluster]
-
-For any service that needs access to GPU resources, you'll need to add the following
-
-
-#### GPU Acceleration [Local Kubernetes Cluster]
+##### GPU Acceleration
 
 See the [official Kubernetes guide](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
 for the latest documentation. If using NVIDIA drivers, you can install the [relevant Helm
