@@ -1,4 +1,5 @@
 from typing import Iterator
+import logging
 
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_ollama import OllamaLLM
@@ -14,6 +15,8 @@ import lib.langchain.util as langchain_utils
 _ollama_client = lambda: ollama.Client(host=config.ollama_base_url)
 _openai_client = lambda: openai.Client(api_key=config.openai_api_key)
 
+_logger = logging.Logger(__name__)
+
 
 def get_available_llms() -> list[str]:
     """
@@ -25,8 +28,19 @@ def get_available_llms() -> list[str]:
 
     :return:
     """
-    ollama_models = _ollama_client().list()['models']
-    openai_models = _openai_client().models.list() if config.openai_api_key else []
+    ollama_models = []
+    try:
+        ollama_models = _ollama_client().list()['models']
+    except:
+        _logger.error("Failed to fetch Ollama models. Is the Ollama API accessible?",
+                      exc_info=True)
+
+    openai_models = []
+    try:
+        openai_models = _openai_client().models.list() if config.openai_api_key else []
+    except:
+        _logger.error("Failed to fetch OpenAI models. Is the OpenAI API accessible?",
+                      exc_info=True)
 
     return [
         *[f'ollama:{remote_model['model']}' for remote_model in ollama_models],
