@@ -38,7 +38,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: ${NVIDIA_GPUS}
               capabilities: [gpu]
   ouragboros:
     build: .
@@ -75,7 +75,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: ${NVIDIA_GPUS}
               capabilities: [gpu]
     develop:
       watch:

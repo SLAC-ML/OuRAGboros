@@ -13,9 +13,9 @@ patches:
         path: /spec/template/spec/containers/0/resources
         value:
           requests:
-            nvidia.com/gpu: 1
+            nvidia.com/gpu: ${NVIDIA_GPUS}
           limits:
-            nvidia.com/gpu: 1
+            nvidia.com/gpu: ${NVIDIA_GPUS}
   - target:
       kind: Deployment
       name: ouragboros

@@ -31,7 +31,14 @@ just run
 $ docker-compose up
 ```
 
-in this directory to build and start the application. 
+in this directory to build and start the application. To utilize host NVIDIA GPUs, you can just
+set 
+
+```
+NVIDIA_GPUS=1
+```
+
+in your `.env` file.
 
 ### Usage
 
@@ -112,7 +119,19 @@ $ git push --tags
 #### S3DF
 
 See [the S3DF wiki](https://s3df.slac.stanford.edu/#/service-compute) for information 
-about acquiring cluster resources.
+about acquiring cluster resources. To configure your local `kubectl` deployment, you'll
+need to set your `kubetctl` context by running something like:
+
+```shell
+$ kubectl config set-cluster "llm-logbook" --server=https://k8s.slac.stanford.edu:443/api/llm-logbook
+$ kubectl config set-credentials "<user>@slac.stanford.edu@llm-logbook"  \
+    <lots of oauth2 config>
+$ kubectl config set-context "llm-logbook" --cluster="llm-logbook" --user="<user>@slac.stanford.edu@llm-logbook"
+$ kubectl config use-context "llm-logbook"
+```
+
+For the exact commands you need to run, log in to 
+https://k8s.slac.stanford.edu/llm-logbook with your SLAC UNIX credentials.
 
 ##### GPU Acceleration
 
