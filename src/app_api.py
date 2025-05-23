@@ -1,5 +1,6 @@
 # app_api.py
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Tuple
 
@@ -25,6 +26,13 @@ class QueryRequest(BaseModel):
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or specify your frontend domain like ["http://localhost:8000"]
+    allow_credentials=True,
+    allow_methods=["*"],  # or ["POST"]
+    allow_headers=["*"],
+)
 
 @app.post("/ask")
 def ask(req: QueryRequest):
