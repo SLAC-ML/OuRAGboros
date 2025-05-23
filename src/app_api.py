@@ -1,0 +1,47 @@
+# app_api.py
+from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import List, Tuple
+
+from lib.rag_service import answer_query
+from langchain.schema import Document
+
+
+class FileUpload(BaseModel):
+    name: str
+    content: str
+
+
+class QueryRequest(BaseModel):
+    query: str
+    embedding_model: str
+    llm_model: str
+    max_documents: int = 5
+    score_threshold: float = 0.0
+    use_opensearch: bool = False
+    prompt: str
+    files: List[FileUpload] = []
+
+
+app = FastAPI()
+
+
+@app.post("/ask")
+def ask(req: QueryRequest):
+    user_files = [(f.name, f.content) for f in req.files]
+    answer, docs = answer_query(
+        query=req.query,
+        embedding_model=req.embedding_model,
+        llm_model=req.llm_model,
+        k=req.max_documents,
+        score_threshold=req.score_threshold,
+        use_opensearch=req.use_opensearch,
+        prompt_template=req.prompt,
+        user_files=user_files,
+    )
+    # only return doc metadata, not full text
+    doc_info = [
+        {"id": d.id, "score": score, "snippet": d.page_content[:200]}
+        for d, score in docs
+    ]
+    return {"answer": answer, "documents": doc_info}
