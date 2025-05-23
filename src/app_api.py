@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Tuple
+from typing import List, Dict
 
 from lib.rag_service import answer_query
 from langchain.schema import Document
@@ -22,6 +22,7 @@ class QueryRequest(BaseModel):
     use_opensearch: bool = False
     prompt: str
     files: List[FileUpload] = []
+    history: List[Dict[str, str]] = []
 
 
 app = FastAPI()
@@ -46,6 +47,7 @@ def ask(req: QueryRequest):
         use_opensearch=req.use_opensearch,
         prompt_template=req.prompt,
         user_files=user_files,
+        history=req.history,
     )
     # only return doc metadata, not full text
     doc_info = [

@@ -2,7 +2,7 @@
 import io
 import itertools
 import time
-from typing import List, Tuple
+from typing import List, Dict, Tuple
 
 from langchain_community.vectorstores.opensearch_vector_search import (
     SCRIPT_SCORING_SEARCH,
@@ -65,6 +65,7 @@ def answer_query(
     use_opensearch: bool,
     prompt_template: str,
     user_files: List[Tuple[str, str]] = None,
+    history: List[Dict[str, str]] = None,
 ) -> Tuple[str, List[Tuple[Document, float]]]:
     """
     Returns (full_answer_text, retrieved_docs), streaming is only in UI.
@@ -73,12 +74,21 @@ def answer_query(
     docs = perform_document_retrieval(
         query, embedding_model, k, score_threshold, use_opensearch
     )
-    # 2. build system message
+
+    # 2. build the base system message
     system_msg = make_system_message(prompt_template, docs, user_files or [])
-    # 3. ensure models are loaded
+
+    # 3. if there *is* prior chat‐history, stitch it in
+    if history:
+        # turn [{"role":"user","content":"…"}, …] into text
+        hist_text = "\n".join(f"{m['role']}: {m['content']}" for m in history)
+        system_msg += "\n\nConversation history:\n" + hist_text
+
+    # 4. ensure models are loaded
     langchain_models.pull_model(embedding_model)
     langchain_models.pull_model(llm_model)
-    # 4. query
+
+    # 5. query
     # langchain_llm.query_llm yields a generator of tokens
     tokens, tokens_for_save = itertools.tee(
         langchain_llm.query_llm(llm_model, query, system_msg), 2
