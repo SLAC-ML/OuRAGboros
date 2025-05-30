@@ -8,6 +8,8 @@ from langchain_community.vectorstores.opensearch_vector_search import (
     SCRIPT_SCORING_SEARCH,
 )
 from langchain.schema import Document
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import SystemMessage, HumanMessage
 
 import lib.config as config
 import lib.streamlit.session_state as ss  # for StateKey
@@ -90,8 +92,30 @@ def answer_query(
 
     # 5. query
     # langchain_llm.query_llm yields a generator of tokens
-    tokens, tokens_for_save = itertools.tee(
-        langchain_llm.query_llm(llm_model, query, system_msg), 2
-    )
-    answer = "".join(tokens_for_save)
+    try:
+        tokens, tokens_for_save = itertools.tee(
+            langchain_llm.query_llm(llm_model, query, system_msg), 2
+        )
+        answer = "".join(tokens_for_save)
+    except Exception:
+        # instantiate a streaming chat LLM
+        chat_llm = ChatOpenAI(
+            model_name=llm_model,
+            temperature=0.0,
+            streaming=True,
+        )
+
+        # wrap your system prompt and user query
+        messages = [
+            SystemMessage(content=system_msg),
+            HumanMessage(content=query),
+        ]
+
+        # get a token generator and tee it
+        token_stream = chat_llm.stream(messages)
+        tokens, tokens_for_save = itertools.tee(token_stream, 2)
+
+        # collect the full answer
+        answer = "".join(tokens_for_save)
+
     return answer, docs
