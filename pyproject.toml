@@ -5,6 +5,8 @@ description = "Python codebase for Winter 2025 Stanford ICME Research Rotation w
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "numpy==1.26.4",
+    "torch==2.2.2",
     "beautifulsoup4>=4.12.3",
     "datasets>=3.3.1",
     "langchain-community>=0.3.14",
@@ -19,15 +21,11 @@ dependencies = [
     "pymupdf>=1.25.2",
     "python-levenshtein>=0.26.1",
     "streamlit>=1.41.1",
-    "transformers[torch]>=4.48.0",
-    "fastapi",
-    "uvicorn",
+    "transformers[touch]==4.51.3",
 ]
 
 [dependency-groups]
-dev = [
-    "ruff>=0.9.3",
-]
+dev = ["ruff>=0.9.3"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tools"]
