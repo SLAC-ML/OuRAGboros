@@ -50,6 +50,7 @@ services:
       metallb.universe.tf/address-pool: sdf-services # Requests an IP address from the sdf-services subnet pool range
     ports:
       - 8501:8501
+      - 8001:8001
     environment:
       # Loaded from .env
       #
