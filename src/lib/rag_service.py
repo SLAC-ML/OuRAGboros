@@ -118,4 +118,5 @@ def answer_query(
         # collect the full answer
         answer = "".join(tokens_for_save)
 
+    
     return answer, docs

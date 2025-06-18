@@ -52,6 +52,7 @@ def query_llm(
         llm_model: str,
         question: str,
         system_message: str = "",
+        max_tokens: int = 2000, # token limit
 ) -> Iterator[str]:
     """
     Asks a particular LLM a question. A system message (e.g., "you are a helpful
@@ -61,6 +62,7 @@ def query_llm(
     :param question:
     :param system_message:
     :param llm_model:
+    :param max_tokens: The maximum number of tokens to generate in the response.
     :return:
     """
     model_source, model_name = langchain_utils.parse_model_name(llm_model)
@@ -72,7 +74,7 @@ def query_llm(
             HumanMessage(content=question)
         ])
     elif model_source == 'openai':
-        openai_llm = OpenAI(openai_api_key=config.openai_api_key, model_name=model_name)
+        openai_llm = OpenAI(openai_api_key=config.openai_api_key, model_name=model_name, max_tokens=max_tokens)
 
         return openai_llm.stream([
             SystemMessage(content=system_message),
