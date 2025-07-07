@@ -126,7 +126,8 @@ if (
 
     # Display the LLM’s answer
     with st.chat_message("ai"):
-        st.text(answer)
+        #st.text(answer)
+        st.markdown(answer)
 
     # Store & render source docs
     st.session_state[ss.StateKey.RAG_DOCS] = docs
