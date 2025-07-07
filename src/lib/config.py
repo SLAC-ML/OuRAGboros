@@ -16,6 +16,7 @@ class Env(str):
     OLLAMA_BASE_URL = 'OLLAMA_BASE_URL'
     OLLAMA_MODEL_DEFAULT = 'OLLAMA_MODEL_DEFAULT'
     OPENAI_API_KEY = 'OPENAI_API_KEY'
+    GOOGLE_API_KEY = 'GOOGLE_API_KEY'
     SENTENCE_TRANSFORMERS_HOME = 'SENTENCE_TRANSFORMERS_HOME'
     HUGGINGFACE_EMBEDDING_MODEL_DEFAULT = 'HUGGINGFACE_EMBEDDING_MODEL_DEFAULT'
     HUGGINGFACE_FINETUNED_EMBEDDING_MODEL = 'HUGGINGFACE_FINETUNED_EMBEDDING_MODEL'
@@ -47,6 +48,7 @@ ollama_base_url = os.getenv(Env.OLLAMA_BASE_URL)
 default_model = os.getenv(Env.OLLAMA_MODEL_DEFAULT)
 
 openai_api_key = os.getenv(Env.OPENAI_API_KEY)
+google_api_key = os.getenv(Env.GOOGLE_API_KEY)
 
 #default_prompt = (
 #    "You are a helpful assistant. Output answers in Markdown. Use $ and $$ to surround "

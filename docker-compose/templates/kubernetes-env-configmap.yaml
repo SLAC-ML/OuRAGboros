@@ -5,6 +5,7 @@ data:
   OLLAMA_BASE_URL: '{{ .Values.ollamaBaseUrl }}'
   OLLAMA_MODEL_DEFAULT: '{{ .Values.ollamaModelDefault }}'
   OPENAI_API_KEY: '{{ .Values.openAiApiKey }}'
+  GOOGLE_API_KEY: '{{ .Values.googleApiKey }}'
   OPENSEARCH_BASE_URL: '{{ .Values.opensearchBaseUrl }}'
   OPENSEARCH_INDEX_PREFIX: '{{ .Values.opensearchIndexPrefix }}'
   OPENSEARCH_JAVA_OPTS: '{{ .Values.opensearchJavaOpts }}'

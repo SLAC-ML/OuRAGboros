@@ -55,6 +55,11 @@ spec:
                 configMapKeyRef:
                   key: OPENAI_API_KEY
                   name: kubernetes-env
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                configMapKeyRef:
+                  key: GOOGLE_API_KEY
+                  name: kubernetes-env
             - name: OPENSEARCH_BASE_URL
               valueFrom:
                 configMapKeyRef:
