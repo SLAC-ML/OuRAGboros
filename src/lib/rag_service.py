@@ -101,7 +101,6 @@ def answer_query(
         answer = "".join(tokens_for_save)
     except Exception:
         # instantiate a streaming chat LLM
-
         model_source, model_name = langchain_utils.parse_model_name(llm_model)
 
         if model_source == "openai":
@@ -136,5 +135,4 @@ def answer_query(
         else:
             answer = "".join(tokens_for_save)
 
-    
     return answer, docs
