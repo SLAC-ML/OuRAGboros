@@ -9,6 +9,7 @@ from langchain_community.vectorstores.opensearch_vector_search import (
 )
 from langchain.schema import Document
 from langchain.chat_models import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import SystemMessage, HumanMessage
 
 import lib.config as config
@@ -16,6 +17,7 @@ import lib.streamlit.session_state as ss  # for StateKey
 import lib.langchain.llm as langchain_llm
 import lib.langchain.models as langchain_models
 import lib.langchain.opensearch as langchain_opensearch
+import lib.langchain.util as langchain_utils
 
 
 def perform_document_retrieval(
@@ -99,11 +101,23 @@ def answer_query(
         answer = "".join(tokens_for_save)
     except Exception:
         # instantiate a streaming chat LLM
-        chat_llm = ChatOpenAI(
-            model_name=llm_model,
-            temperature=0.0,
-            streaming=True,
-        )
+        model_source, model_name = langchain_utils.parse_model_name(llm_model)
+
+        if model_source == "openai":
+            chat_llm = ChatOpenAI(
+                model_name=llm_model,
+                temperature=0.0,
+                streaming=True,
+            )
+        elif model_source == "google":
+            chat_llm = ChatGoogleGenerativeAI(
+                model=model_name,
+                #google_api_key=config.google_api_key,
+                temperature=0.0,
+                streaming=True,
+            )
+        else:
+            raise RuntimeError(f"Unsupported fallback model source: {model_source}")
 
         # wrap your system prompt and user query
         messages = [
@@ -116,6 +130,9 @@ def answer_query(
         tokens, tokens_for_save = itertools.tee(token_stream, 2)
 
         # collect the full answer
-        answer = "".join(tokens_for_save)
+        if model_source == "google":
+            answer = "".join(chunk.content for chunk in tokens_for_save)
+        else:
+            answer = "".join(tokens_for_save)
 
     return answer, docs

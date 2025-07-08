@@ -37,5 +37,10 @@ ENTRYPOINT []
 # Run the FastAPI application by default
 # Uses `fastapi dev` to enable hot-reloading when the `watch` sync occurs
 # Uses `--host 0.0.0.0` to allow access from outside the container
-CMD ["uv", "run", "streamlit", "run", "src/main.py", "--server.port=8501", "--server.address=0.0.0.0"]
 
+COPY run_apps.sh /app/run_apps.sh
+RUN chmod +x /app/run_apps.sh
+
+#CMD ["uv", "run", "streamlit", "run", "src/main.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["/app/run_apps.sh"]
+#CMD ["uv", "run", "uvicorn", "app_api:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
