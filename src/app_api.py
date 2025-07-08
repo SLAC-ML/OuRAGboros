@@ -17,6 +17,7 @@ class QueryRequest(BaseModel):
     query: str
     embedding_model: str
     llm_model: str
+    use_rag: bool = True
     max_documents: int = 5
     score_threshold: float = 0.0
     use_opensearch: bool = False
@@ -48,6 +49,7 @@ def ask(req: QueryRequest):
         prompt_template=req.prompt,
         user_files=user_files,
         history=req.history,
+        use_rag=req.use_rag,
     )
     # only return doc metadata, not full text
     doc_info = [

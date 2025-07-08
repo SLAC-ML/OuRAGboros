@@ -68,14 +68,19 @@ def answer_query(
     prompt_template: str,
     user_files: List[Tuple[str, str]] = None,
     history: List[Dict[str, str]] = None,
+    use_rag: bool = True,
 ) -> Tuple[str, List[Tuple[Document, float]]]:
     """
     Returns (full_answer_text, retrieved_docs), streaming is only in UI.
     """
     # 1. retrieve
-    docs = perform_document_retrieval(
-        query, embedding_model, k, score_threshold, use_opensearch
-    )
+    if use_rag:
+        docs = perform_document_retrieval(
+            query, embedding_model, k, score_threshold, use_opensearch
+        )
+    else:
+        # if not using RAG, return an empty docs list
+        docs = []
 
     # 2. build the base system message
     system_msg = make_system_message(prompt_template, docs, user_files or [])
