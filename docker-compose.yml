@@ -12,8 +12,7 @@ services:
       - "OPENSEARCH_JAVA_OPTS=${OPENSEARCH_JAVA_OPTS}"
       - "DISABLE_INSTALL_DEMO_CONFIG=true"
       - "DISABLE_SECURITY_PLUGIN=true"
-    env_file:
-      - .kubernetes.env
+    # env_file removed - using .env and environment variables instead
     volumes:
       - opensearch_data:/usr/share/opensearch/data
     restart: "always"
@@ -33,13 +32,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     restart: "always"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: ${NVIDIA_GPUS}
-              capabilities: [gpu]
+
   ouragboros:
     build: .
     image: schrodingersket/ouragboros:0.0.1
@@ -62,21 +55,13 @@ services:
       - "HUGGINGFACE_EMBEDDING_MODEL_DEFAULT=${HUGGINGFACE_EMBEDDING_MODEL_DEFAULT}"
       - "HUGGINGFACE_FINETUNED_EMBEDDING_MODEL=${HUGGINGFACE_FINETUNED_EMBEDDING_MODEL}"
       - "OPENAI_API_KEY=${OPENAI_API_KEY}"
-    env_file:
-      - .kubernetes.env
+    # env_file removed - using .env and environment variables instead
     volumes:
       - ouragboros_models:/app/models
     restart: "always"
     depends_on:
       - ollama
       - opensearch
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: ${NVIDIA_GPUS}
-              capabilities: [gpu]
     develop:
       watch:
         - action: sync
