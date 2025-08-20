@@ -42,36 +42,30 @@ with st.sidebar:
         # Disable selectbox when in create mode to prevent re-rendering issues
         is_in_create_mode = st.session_state.get("_kb_create_mode_main", False)
         
-        # Store the original KB selection when entering create mode
-        if "_original_kb_main" not in st.session_state:
-            st.session_state["_original_kb_main"] = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
+        # Use a counter to force selectbox refresh after cancel
+        if "_kb_selector_counter_main" not in st.session_state:
+            st.session_state["_kb_selector_counter_main"] = 0
         
         # Determine what to show in selectbox
+        current_kb = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
         if is_in_create_mode:
-            # In create mode, show the original KB selection
-            display_selection = st.session_state["_original_kb_main"]
+            # In create mode, show the original KB but keep disabled
+            display_index = kb_options.index(current_kb) if current_kb in available_knowledge_bases else 0
         else:
-            # Normal mode
-            display_selection = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
+            # Normal mode - show current KB
+            display_index = kb_options.index(current_kb) if current_kb in available_knowledge_bases else 0
             
         selected_option = st.selectbox(
             "Select or create knowledge base:",
             kb_options,
-            index=kb_options.index(display_selection) if display_selection in available_knowledge_bases else 0,
-            key="kb_selector_main",
+            index=display_index,
+            key=f"kb_selector_main_{st.session_state['_kb_selector_counter_main']}",
             help="Choose an existing knowledge base or create a new one",
             disabled=is_in_create_mode,
         )
 
         # Handle "Create new" selection
-        # Check if we should ignore this selection (e.g., after cancel)
-        ignore_create_selection = st.session_state.get("_ignore_create_selection_main", False)
-        if ignore_create_selection:
-            # Clear the ignore flag and don't enter create mode
-            del st.session_state["_ignore_create_selection_main"]
-        elif selected_option == "+ Create new..." and not is_in_create_mode:
-            # Store current KB selection before entering create mode
-            st.session_state["_original_kb_main"] = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
+        if selected_option == "+ Create new..." and not is_in_create_mode:
             # Set create mode state
             st.session_state["_kb_create_mode_main"] = True
             st.rerun()
@@ -134,8 +128,8 @@ with st.sidebar:
                                     st.cache_resource.clear()
                                     # Exit create mode and clean up
                                     st.session_state["_kb_create_mode_main"] = False
-                                    if "_original_kb_main" in st.session_state:
-                                        del st.session_state["_original_kb_main"]
+                                    # Increment counter to refresh selectbox
+                                    st.session_state["_kb_selector_counter_main"] += 1
                                     st.rerun()
 
                                 except Exception as e:
@@ -156,11 +150,8 @@ with st.sidebar:
                     # Clear the text input
                     if "new_kb_name_main" in st.session_state:
                         del st.session_state["new_kb_name_main"]
-                    # Clear the original KB storage
-                    if "_original_kb_main" in st.session_state:
-                        del st.session_state["_original_kb_main"]
-                    # Set a flag to ignore the "+ Create new..." selection on next run
-                    st.session_state["_ignore_create_selection_main"] = True
+                    # Increment counter to force selectbox refresh
+                    st.session_state["_kb_selector_counter_main"] += 1
                     st.rerun()
 
         else:
