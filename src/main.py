@@ -41,20 +41,28 @@ with st.sidebar:
         # Knowledge Base Selection
         # Disable selectbox when in create mode to prevent re-rendering issues
         is_in_create_mode = st.session_state.get("_kb_create_mode_main", False)
-        
+
         # Use a counter to force selectbox refresh after cancel
         if "_kb_selector_counter_main" not in st.session_state:
             st.session_state["_kb_selector_counter_main"] = 0
-        
+
         # Determine what to show in selectbox
         current_kb = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
         if is_in_create_mode:
             # In create mode, show the original KB but keep disabled
-            display_index = kb_options.index(current_kb) if current_kb in available_knowledge_bases else 0
+            display_index = (
+                kb_options.index(current_kb)
+                if current_kb in available_knowledge_bases
+                else 0
+            )
         else:
             # Normal mode - show current KB
-            display_index = kb_options.index(current_kb) if current_kb in available_knowledge_bases else 0
-            
+            display_index = (
+                kb_options.index(current_kb)
+                if current_kb in available_knowledge_bases
+                else 0
+            )
+
         selected_option = st.selectbox(
             "Select or create knowledge base:",
             kb_options,
@@ -69,7 +77,7 @@ with st.sidebar:
             # Set create mode state
             st.session_state["_kb_create_mode_main"] = True
             st.rerun()
-        
+
         # Show create mode UI if in create mode
         if is_in_create_mode:
             with st.container():
@@ -88,52 +96,60 @@ with st.sidebar:
                     create_clicked = st.button(
                         "Create", key="create_kb_btn_main", use_container_width=True
                     )
-                    
+
                 if create_clicked:
                     if not new_kb_name or new_kb_name.strip() == "":
-                        st.error("💡 Please enter a name for your knowledge base. Only letters, numbers, and underscores are allowed.")
+                        st.error(
+                            "💡 Please enter a name for your knowledge base. Only letters, numbers, and underscores are allowed."
+                        )
                     elif new_kb_name in available_knowledge_bases:
-                        st.error(f"💡 Knowledge base '{new_kb_name}' already exists! Please choose a different name.")
+                        st.error(
+                            f"💡 Knowledge base '{new_kb_name}' already exists! Please choose a different name."
+                        )
                     else:
                         import re
 
                         if re.match(r"^[a-zA-Z0-9_]+$", new_kb_name):
-                                try:
-                                    import lib.langchain.opensearch as langchain_opensearch
+                            try:
+                                import lib.langchain.opensearch as langchain_opensearch
 
-                                    current_embedding = st.session_state[
-                                        ss.StateKey.EMBEDDING_MODEL
-                                    ]
+                                current_embedding = st.session_state[
+                                    ss.StateKey.EMBEDDING_MODEL
+                                ]
 
-                                    if st.session_state[ss.StateKey.USE_OPENSEARCH]:
-                                        langchain_opensearch.ensure_opensearch_index(
-                                            current_embedding, new_kb_name
-                                        )
-                                    else:
-                                        if (
-                                            "_in_memory_knowledge_bases"
-                                            not in st.session_state
-                                        ):
-                                            st.session_state[
-                                                "_in_memory_knowledge_bases"
-                                            ] = []
+                                if st.session_state[ss.StateKey.USE_OPENSEARCH]:
+                                    langchain_opensearch.ensure_opensearch_index(
+                                        current_embedding, new_kb_name
+                                    )
+                                else:
+                                    if (
+                                        "_in_memory_knowledge_bases"
+                                        not in st.session_state
+                                    ):
                                         st.session_state[
                                             "_in_memory_knowledge_bases"
-                                        ].append(new_kb_name)
+                                        ] = []
+                                    st.session_state[
+                                        "_in_memory_knowledge_bases"
+                                    ].append(new_kb_name)
 
-                                    # Auto-select the new KB and refresh
-                                    st.session_state[ss.StateKey.KNOWLEDGE_BASE] = (
-                                        new_kb_name
-                                    )
-                                    st.cache_resource.clear()
-                                    # Exit create mode and clean up
-                                    st.session_state["_kb_create_mode_main"] = False
-                                    # Increment counter to refresh selectbox
-                                    st.session_state["_kb_selector_counter_main"] += 1
-                                    st.rerun()
+                                # Auto-select the new KB and refresh
+                                st.session_state[ss.StateKey.KNOWLEDGE_BASE] = (
+                                    new_kb_name
+                                )
+                                st.cache_resource.clear()
+                                # Exit create mode and clean up
+                                st.session_state["_kb_create_mode_main"] = False
+                                # Increment counter to refresh selectbox
+                                st.session_state["_kb_selector_counter_main"] += 1
+                                # Set success message flag to show outside section
+                                st.session_state["_create_success_message"] = (
+                                    f"Created '{new_kb_name}' successfully!"
+                                )
+                                st.rerun()
 
-                                except Exception as e:
-                                    st.error(f"Failed to create: {str(e)}")
+                            except Exception as e:
+                                st.error(f"Failed to create: {str(e)}")
                         else:
                             st.error(
                                 "💡 Invalid name! Knowledge base names can only contain letters, numbers, and underscores (e.g., 'physics_papers', 'legal_docs')"
@@ -143,7 +159,7 @@ with st.sidebar:
                     cancel_clicked = st.button(
                         "Cancel", key="cancel_kb_main", use_container_width=True
                     )
-                    
+
                 if cancel_clicked:
                     # Exit create mode and return to previous state
                     st.session_state["_kb_create_mode_main"] = False
@@ -156,9 +172,11 @@ with st.sidebar:
 
         else:
             # Update the actual knowledge base selection (but ignore "+ Create new...")
-            if (selected_option != st.session_state.get(ss.StateKey.KNOWLEDGE_BASE) and 
-                selected_option != "+ Create new..." and 
-                selected_option in available_knowledge_bases):
+            if (
+                selected_option != st.session_state.get(ss.StateKey.KNOWLEDGE_BASE)
+                and selected_option != "+ Create new..."
+                and selected_option in available_knowledge_bases
+            ):
                 st.session_state[ss.StateKey.KNOWLEDGE_BASE] = selected_option
                 st.cache_resource.clear()  # Clear cache when switching KBs
                 st.rerun()
@@ -291,10 +309,14 @@ if st.session_state.get(ss.StateKey.SEARCH_QUERY) and st.session_state.get(
         mime="application/json",
     )
 
-# Show success message if any
+# Show success messages if any
 if "_delete_success_message" in st.session_state:
     st.success(st.session_state["_delete_success_message"])
     del st.session_state["_delete_success_message"]
+
+if "_create_success_message" in st.session_state:
+    st.success(st.session_state["_create_success_message"])
+    del st.session_state["_create_success_message"]
 
 # Handle knowledge base deletion confirmations outside sidebar to avoid freezing issues
 # Check for any deletion confirmation flags and handle them
@@ -349,7 +371,9 @@ if kb_to_delete:
                     if f"_confirm_delete_{kb_to_delete}" in st.session_state:
                         del st.session_state[f"_confirm_delete_{kb_to_delete}"]
                     # Set success message flag to show outside dialog
-                    st.session_state["_delete_success_message"] = f"Deleted '{kb_to_delete}' successfully!"
+                    st.session_state["_delete_success_message"] = (
+                        f"Deleted '{kb_to_delete}' successfully!"
+                    )
                     st.rerun()
 
                 except Exception as e:
