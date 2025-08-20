@@ -83,7 +83,10 @@ def init() -> tuple[list[str], list[str], list[str]]:
     except:
         pass  # OpenSearch not available, use in-memory only
 
-    available_knowledge_bases.sort()
+    # Ensure "default" is always first, keep others in discovery/creation order
+    if "default" in available_knowledge_bases:
+        available_knowledge_bases.remove("default")
+        available_knowledge_bases.insert(0, "default")
 
     default_session_state = [
         (StateKey.RAG_DOCS, []),
@@ -143,8 +146,8 @@ def get_vector_store(
     use_opensearch_vectorstore: bool, model: str, knowledge_base: str = "default"
 ) -> VectorStore:
     """
-    Fetches a particular vector store implementation for a specific model and knowledge base. 
-    We annotate this with st.cache_resource so that the in-memory vector store is retained 
+    Fetches a particular vector store implementation for a specific model and knowledge base.
+    We annotate this with st.cache_resource so that the in-memory vector store is retained
     for the life of the application.
 
     IMPORTANT: The cache key includes all parameters to ensure different knowledge bases

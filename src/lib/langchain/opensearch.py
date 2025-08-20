@@ -56,8 +56,8 @@ def ensure_opensearch_index(
 ) -> None:
     """
     Ensures the existence of an OpenSearch index. We create one index per embedding model
-    and knowledge base combination, since different models may generate various embedding 
-    vector sizes (and even if two models generate vectors of the same size, they certainly 
+    and knowledge base combination, since different models may generate various embedding
+    vector sizes (and even if two models generate vectors of the same size, they certainly
     do not do so the same way).
 
     :param embedding_model_name: The embedding model name
@@ -103,7 +103,7 @@ def opensearch_doc_vector_store(
 def get_available_knowledge_bases() -> list[str]:
     """
     Returns a list of available knowledge bases by examining existing OpenSearch indices.
-    
+
     :return: List of knowledge base names
     """
     try:
@@ -162,7 +162,12 @@ def get_available_knowledge_bases() -> list[str]:
         if indices:
             knowledge_bases.add("default")
 
-        kb_list = sorted(list(knowledge_bases))
+        kb_list = list(knowledge_bases)
+        # Ensure "default" is always first if present, keep others in discovery order
+        if "default" in kb_list:
+            kb_list.remove("default")
+            kb_list.insert(0, "default")
+
         logging.debug(f"Final knowledge bases list: {kb_list}")
         return kb_list if kb_list else ["default"]
 
@@ -174,7 +179,7 @@ def get_available_knowledge_bases() -> list[str]:
 def delete_knowledge_base(knowledge_base: str, embedding_model: str) -> bool:
     """
     Deletes a knowledge base by removing its OpenSearch index.
-    
+
     :param knowledge_base: The knowledge base name to delete
     :param embedding_model: The embedding model used (needed to find correct index)
     :return: True if successful, False otherwise
