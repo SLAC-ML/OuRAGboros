@@ -24,10 +24,13 @@ def perform_document_retrieval(
     k: int,
     score_threshold: float,
     use_opensearch_vectorstore: bool,
+    knowledge_base: str = "default",
 ) -> List[Tuple[Document, float]]:
-    vs = ss.get_vector_store(use_opensearch_vectorstore, embedding_model)
+    vs = ss.get_vector_store(
+        use_opensearch_vectorstore, embedding_model, knowledge_base
+    )
     if use_opensearch_vectorstore:
-        langchain_opensearch.ensure_opensearch_index(embedding_model)
+        langchain_opensearch.ensure_opensearch_index(embedding_model, knowledge_base)
         return vs.similarity_search_with_score(
             query=query,
             k=k,
@@ -44,9 +47,7 @@ def perform_document_retrieval(
 
 
 def make_system_message(
-    prompt: str,
-    docs: List[Tuple[Document, float]],
-    user_files: List[Tuple[str, str]],
+    prompt: str, docs: List[Tuple[Document, float]], user_files: List[Tuple[str, str]],
 ) -> str:
     # Flatten docs + uploaded files into sources
     sources = [(doc.id, doc.page_content) for doc, _ in docs] + user_files
@@ -69,6 +70,7 @@ def answer_query(
     user_files: List[Tuple[str, str]] = None,
     history: List[Dict[str, str]] = None,
     use_rag: bool = True,
+    knowledge_base: str = "default",
 ) -> Tuple[str, List[Tuple[Document, float]]]:
     """
     Returns (full_answer_text, retrieved_docs), streaming is only in UI.
@@ -76,7 +78,7 @@ def answer_query(
     # 1. retrieve
     if use_rag:
         docs = perform_document_retrieval(
-            query, embedding_model, k, score_threshold, use_opensearch
+            query, embedding_model, k, score_threshold, use_opensearch, knowledge_base
         )
     else:
         # if not using RAG, return an empty docs list
@@ -104,11 +106,7 @@ def answer_query(
         answer = "".join(tokens_for_save)
     except Exception:
         # instantiate a streaming chat LLM
-        chat_llm = ChatOpenAI(
-            model_name=llm_model,
-            temperature=0.0,
-            streaming=True,
-        )
+        chat_llm = ChatOpenAI(model_name=llm_model, temperature=0.0, streaming=True,)
 
         # wrap your system prompt and user query
         messages = [

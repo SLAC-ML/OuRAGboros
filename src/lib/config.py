@@ -6,29 +6,31 @@ import os
 
 import dotenv
 
-dotenv.load_dotenv('.default.env')
+dotenv.load_dotenv(".default.env")
 
 
 class Env(str):
     """
     Contains all environment variable names used in this application.
     """
-    OLLAMA_BASE_URL = 'OLLAMA_BASE_URL'
-    OLLAMA_MODEL_DEFAULT = 'OLLAMA_MODEL_DEFAULT'
-    OPENAI_API_KEY = 'OPENAI_API_KEY'
-    SENTENCE_TRANSFORMERS_HOME = 'SENTENCE_TRANSFORMERS_HOME'
-    HUGGINGFACE_EMBEDDING_MODEL_DEFAULT = 'HUGGINGFACE_EMBEDDING_MODEL_DEFAULT'
-    HUGGINGFACE_FINETUNED_EMBEDDING_MODEL = 'HUGGINGFACE_FINETUNED_EMBEDDING_MODEL'
-    PDF_PARSER_MODEL = 'PDF_PARSER_MODEL'
-    PREFER_OPENSEARCH = 'PREFER_OPENSEARCH'
-    OPENSEARCH_BASE_URL = 'OPENSEARCH_BASE_URL'
-    OPENSEARCH_INDEX_PREFIX = 'OPENSEARCH_INDEX_PREFIX'
+
+    OLLAMA_BASE_URL = "OLLAMA_BASE_URL"
+    OLLAMA_MODEL_DEFAULT = "OLLAMA_MODEL_DEFAULT"
+    OPENAI_API_KEY = "OPENAI_API_KEY"
+    SENTENCE_TRANSFORMERS_HOME = "SENTENCE_TRANSFORMERS_HOME"
+    HUGGINGFACE_EMBEDDING_MODEL_DEFAULT = "HUGGINGFACE_EMBEDDING_MODEL_DEFAULT"
+    HUGGINGFACE_FINETUNED_EMBEDDING_MODEL = "HUGGINGFACE_FINETUNED_EMBEDDING_MODEL"
+    PDF_PARSER_MODEL = "PDF_PARSER_MODEL"
+    PREFER_OPENSEARCH = "PREFER_OPENSEARCH"
+    OPENSEARCH_BASE_URL = "OPENSEARCH_BASE_URL"
+    OPENSEARCH_INDEX_PREFIX = "OPENSEARCH_INDEX_PREFIX"
+
 
 def _bool_from_env(env: str) -> bool:
     value = os.getenv(env).lower() if os.getenv(env) else None
 
-    true_vals = ('yes', 'true', 't', 'y', '1')
-    false_vals = ('no', 'false', 'f', 'n', '0', 'off', None, '')
+    true_vals = ("yes", "true", "t", "y", "1")
+    false_vals = ("no", "false", "f", "n", "0", "off", None, "")
 
     if value in true_vals:
         return True
@@ -36,8 +38,8 @@ def _bool_from_env(env: str) -> bool:
         return False
     else:
         raise ValueError(
-            f'Boolean value expected for environment variable {env}. Choose from '
-            f'{true_vals} or {false_vals}. Value given was ${value}.'
+            f"Boolean value expected for environment variable {env}. Choose from "
+            f"{true_vals} or {false_vals}. Value given was ${value}."
         )
 
 
@@ -94,40 +96,31 @@ opensearch_index_prefix = os.getenv(Env.OPENSEARCH_INDEX_PREFIX)
 
 def opensearch_index_settings(vector_size: int):
     return {
-        'settings': {
-            'index': {
-                'number_of_shards': 1,
-                'number_of_replicas': 0,
-                'knn': True
-            }
+        "settings": {
+            "index": {"number_of_shards": 1, "number_of_replicas": 0, "knn": True}
         },
-        'mappings': {
-            'properties': {
+        "mappings": {
+            "properties": {
                 # For keyword search
                 #
-                'content': {
-                    'type': 'text',
-                },
+                "content": {"type": "text",},
                 # Vector search
                 #
-                'vector_field': {
-                    'type': 'knn_vector',
-                    'dimension': vector_size,
-                    'space_type': 'l2',
+                "vector_field": {
+                    "type": "knn_vector",
+                    "dimension": vector_size,
+                    "space_type": "l2",
                     # See https://opensearch.org/docs/latest/search-plugins/knn/knn-index#method-definitions
                     #
-                    'method': {
-                        'name': 'hnsw',
-                        'engine': 'lucene',
-                        'parameters': {
-                            'ef_construction': 512,
-                            'm': 16
-                        }
-                    }
+                    "method": {
+                        "name": "hnsw",
+                        "engine": "lucene",
+                        "parameters": {"ef_construction": 512, "m": 16},
+                    },
                 },
             }
-        }
+        },
     }
 
 
-text_file_types = ['txt', 'md', 'tex']
+text_file_types = ["txt", "md", "tex"]

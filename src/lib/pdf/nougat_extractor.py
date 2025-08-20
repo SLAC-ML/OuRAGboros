@@ -15,7 +15,7 @@ from transformers import (
     StoppingCriteria,
     StoppingCriteriaList,
     AutoProcessor,
-    VisionEncoderDecoderModel
+    VisionEncoderDecoderModel,
 )
 
 import lib.config as config
@@ -85,12 +85,12 @@ class _StoppingCriteriaScores(StoppingCriteria):
 
 class NougatExtractor(PDFExtractor):
     def extract_text(
-            self,
-            pdf_bytes: BinaryIO,
-            filename: str,
-            outpath: Optional[Path] = None,
-            page_range=None,
-            dpi: int = 96,
+        self,
+        pdf_bytes: BinaryIO,
+        filename: str,
+        outpath: Optional[Path] = None,
+        page_range=None,
+        dpi: int = 96,
     ) -> Iterable[Tuple[io.BytesIO, str, List[int]]]:
         """
         :param pdf_bytes: Path to PDF file.
@@ -106,12 +106,10 @@ class NougatExtractor(PDFExtractor):
         # Nougat can preserve math equations and tables
 
         processor = AutoProcessor.from_pretrained(
-            config.pdf_parser_model,
-            cache_dir=config.huggingface_model_cache_folder,
+            config.pdf_parser_model, cache_dir=config.huggingface_model_cache_folder,
         )
         model = VisionEncoderDecoderModel.from_pretrained(
-            config.pdf_parser_model,
-            cache_dir=config.huggingface_model_cache_folder,
+            config.pdf_parser_model, cache_dir=config.huggingface_model_cache_folder,
         )
 
         # use GPU if available
@@ -125,21 +123,16 @@ class NougatExtractor(PDFExtractor):
 
         # Loop through all pages in the document
         for k, (image, pages) in enumerate(
-                self._rasterize_paper(
-                    pdf_bytes,
-                    filename,
-                    outpath=outpath,
-                    page_range=page_range,
-                    dpi=dpi
-                )
+            self._rasterize_paper(
+                pdf_bytes, filename, outpath=outpath, page_range=page_range, dpi=dpi
+            )
         ):
             pil_image = Image.open(image)
 
             # Preprocess the current image
-            pixel_values = processor(images=pil_image,
-                                     return_tensors="pt").pixel_values.to(
-                device
-            )
+            pixel_values = processor(
+                images=pil_image, return_tensors="pt"
+            ).pixel_values.to(device)
 
             # Generate text for the current page
             outputs = model.generate(
@@ -156,7 +149,7 @@ class NougatExtractor(PDFExtractor):
             generated = processor.batch_decode(outputs[0], skip_special_tokens=True)[0]
             generated = processor.post_process_generation(generated, fix_markdown=False)
 
-            page_bytes = io.BytesIO(generated.encode('utf-8'))
+            page_bytes = io.BytesIO(generated.encode("utf-8"))
 
             # Save the to text file if desired
             #
@@ -173,12 +166,12 @@ class NougatExtractor(PDFExtractor):
     # PDF to PNG
     #
     def _rasterize_paper(
-            self,
-            pdf_bytes: BinaryIO,
-            filename: str,
-            outpath: Optional[Path] = None,
-            dpi: int = 96,
-            page_range=None,
+        self,
+        pdf_bytes: BinaryIO,
+        filename: str,
+        outpath: Optional[Path] = None,
+        dpi: int = 96,
+        page_range=None,
     ) -> Iterable[io.BytesIO]:
         """
         Rasterize a PDF file to PNG images.
@@ -208,8 +201,8 @@ class NougatExtractor(PDFExtractor):
                 #
                 if outpath:
                     with open(
-                            os.path.join(outpath, f"{Path(filename).stem}.{i + 1}.png"),
-                            "wb"
+                        os.path.join(outpath, f"{Path(filename).stem}.{i + 1}.png"),
+                        "wb",
                     ) as f:
                         f.write(page_bytes)
 

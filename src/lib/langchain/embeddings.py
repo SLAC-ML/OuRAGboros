@@ -37,18 +37,18 @@ def get_available_embeddings() -> list[str]:
     """
     ollama_models = langchain_llms.get_available_llms()
     huggingface_models = [
-        f'huggingface:{config.huggingface_default_embedding_model}',
+        f"huggingface:{config.huggingface_default_embedding_model}",
     ]
 
     # If we have a local model trained, we prioritize that one.
     #
     finetuned_model_path = os.path.join(
         config.huggingface_model_cache_folder,
-        config.huggingface_finetuned_embedding_model
+        config.huggingface_finetuned_embedding_model,
     )
 
     if os.path.exists(finetuned_model_path):
-        huggingface_models.insert(0, f'huggingface:{finetuned_model_path}')
+        huggingface_models.insert(0, f"huggingface:{finetuned_model_path}")
 
     return [*huggingface_models, *ollama_models]
 
@@ -66,9 +66,8 @@ def get_embedding(embedding_model: str) -> Embeddings:
     #
     return (
         HuggingFaceEmbeddings(
-            model_name=model_name,
-            cache_folder=config.huggingface_model_cache_folder,
+            model_name=model_name, cache_folder=config.huggingface_model_cache_folder,
         )
-        if model_source == 'huggingface' else
-        OllamaEmbeddings(model=model_name, base_url=config.ollama_base_url)
+        if model_source == "huggingface"
+        else OllamaEmbeddings(model=model_name, base_url=config.ollama_base_url)
     )

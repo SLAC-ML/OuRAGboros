@@ -24,17 +24,21 @@ class QueryRequest(BaseModel):
     prompt: str
     files: List[FileUpload] = []
     history: List[Dict[str, str]] = []
+    knowledge_base: str = "default"
 
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # or specify your frontend domain like ["http://localhost:8000"]
+    allow_origins=[
+        "*"
+    ],  # or specify your frontend domain like ["http://localhost:8000"]
     allow_credentials=True,
     allow_methods=["*"],  # or ["POST"]
     allow_headers=["*"],
 )
+
 
 @app.post("/ask")
 def ask(req: QueryRequest):
@@ -50,6 +54,7 @@ def ask(req: QueryRequest):
         user_files=user_files,
         history=req.history,
         use_rag=req.use_rag,
+        knowledge_base=req.knowledge_base,
     )
     # only return doc metadata, not full text
     doc_info = [

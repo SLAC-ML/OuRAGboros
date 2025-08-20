@@ -11,10 +11,10 @@ class PDFExtractor:
     """
 
     def extract_text(
-            self,
-            pdf_bytes: BinaryIO,
-            filename: str,
-            outpath: Optional[Path] = None,
-            page_range: Optional[List[int]] = None
+        self,
+        pdf_bytes: BinaryIO,
+        filename: str,
+        outpath: Optional[Path] = None,
+        page_range: Optional[List[int]] = None,
     ) -> Iterable[Tuple[io.BytesIO, str, List[int]]]:
         raise NotImplementedError()

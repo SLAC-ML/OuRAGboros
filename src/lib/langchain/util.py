@@ -9,4 +9,4 @@ def parse_model_name(embedding_model: str):
     :param embedding_model:
     :return:
     """
-    return embedding_model.split(':', maxsplit=1)
+    return embedding_model.split(":", maxsplit=1)
