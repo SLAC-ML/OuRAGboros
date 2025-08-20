@@ -15,7 +15,9 @@ import lib.langchain.opensearch as langchain_opensearch
 import lib.config as config
 
 st.set_page_config(
-    page_title="Document Embedding", page_icon=":page_facing_up:", layout="wide",
+    page_title="Document Embedding",
+    page_icon=":page_facing_up:",
+    layout="wide",
 )
 
 # Initialize navigation bar
@@ -56,7 +58,13 @@ def _upload_text_to_vector_store(
     file_hash = hashlib.sha256(text_file_bytes.getbuffer()).hexdigest()
 
     overlap = int((100 - text_chunk_overlap) * text_chunk_size / 100)
-    chunks = list(_sliding_window(file_content, text_chunk_size, overlap,))
+    chunks = list(
+        _sliding_window(
+            file_content,
+            text_chunk_size,
+            overlap,
+        )
+    )
 
     timestamp = int(time.time())
     for i, chunk in enumerate(chunks):
@@ -84,7 +92,9 @@ def _upload_text_to_vector_store(
         yield (
             i,
             vs.add_texts(
-                texts=[chunk], ids=[opensearch_document_id], metadatas=[metadata],
+                texts=[chunk],
+                ids=[opensearch_document_id],
+                metadatas=[metadata],
             ),
             len(chunks),
         )
@@ -107,46 +117,73 @@ with st.sidebar:
         kb_options = available_knowledge_bases + ["+ Create new..."]
 
         # Knowledge Base Selection
+        # Disable selectbox when in create mode to prevent re-rendering issues
+        is_in_create_mode = st.session_state.get("_kb_create_mode_embed", False)
+        
+        # Store the original KB selection when entering create mode
+        if "_original_kb_embed" not in st.session_state:
+            st.session_state["_original_kb_embed"] = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
+        
+        # Determine what to show in selectbox
+        if is_in_create_mode:
+            # In create mode, show the original KB selection
+            display_selection = st.session_state["_original_kb_embed"]
+        else:
+            # Normal mode
+            display_selection = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
+
         selected_option = st.selectbox(
             "Target knowledge base for uploads:",
             kb_options,
-            index=kb_options.index(
-                st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
-            )
-            if st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
-            in available_knowledge_bases
-            else 0,
+            index=kb_options.index(display_selection) if display_selection in available_knowledge_bases else 0,
             key="kb_selector_embed",
             help="Choose where to store uploaded documents",
+            disabled=is_in_create_mode,
         )
 
         # Handle "Create new" selection
-        if selected_option == "+ Create new...":
+        # Check if we should ignore this selection (e.g., after cancel)
+        ignore_create_selection = st.session_state.get("_ignore_create_selection_embed", False)
+        if ignore_create_selection:
+            # Clear the ignore flag and don't enter create mode
+            del st.session_state["_ignore_create_selection_embed"]
+        elif selected_option == "+ Create new..." and not is_in_create_mode:
+            # Store current KB selection before entering create mode
+            st.session_state["_original_kb_embed"] = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
+            # Set create mode state
+            st.session_state["_kb_create_mode_embed"] = True
+            st.rerun()
+        
+        # Show create mode UI if in create mode
+        if is_in_create_mode:
             with st.container():
                 st.write("**Create New Knowledge Base**")
+                st.info("💡 Enter a name for your new knowledge base below:")
                 new_kb_name = st.text_input(
                     "Name:",
                     placeholder="e.g., physics_papers, legal_docs",
                     help="Only letters, numbers, and underscores allowed",
                     key="new_kb_name_embed",
+                    label_visibility="collapsed",
                 )
 
                 col1, col2 = st.columns([1, 1])
                 with col1:
-                    if (
-                        st.button(
-                            "Create",
-                            key="create_kb_btn_embed",
-                            use_container_width=True,
-                        )
-                        and new_kb_name
-                    ):
+                    create_clicked = st.button(
+                        "Create",
+                        key="create_kb_btn_embed",
+                        use_container_width=True,
+                    )
+                    
+                if create_clicked:
+                    if not new_kb_name or new_kb_name.strip() == "":
+                        st.error("💡 Please enter a name for your knowledge base. Only letters, numbers, and underscores are allowed.")
+                    elif new_kb_name in available_knowledge_bases:
+                        st.error(f"💡 Knowledge base '{new_kb_name}' already exists! Please choose a different name.")
+                    else:
                         import re
 
                         if re.match(r"^[a-zA-Z0-9_]+$", new_kb_name):
-                            if new_kb_name in available_knowledge_bases:
-                                st.error(f"'{new_kb_name}' already exists!")
-                            else:
                                 try:
                                     current_embedding = st.session_state[
                                         ss.StateKey.EMBEDDING_MODEL
@@ -169,10 +206,14 @@ with st.sidebar:
                                         ].append(new_kb_name)
 
                                     # Auto-select the new KB and refresh
-                                    st.session_state[
-                                        ss.StateKey.KNOWLEDGE_BASE
-                                    ] = new_kb_name
+                                    st.session_state[ss.StateKey.KNOWLEDGE_BASE] = (
+                                        new_kb_name
+                                    )
                                     st.cache_resource.clear()
+                                    # Exit create mode and clean up
+                                    st.session_state["_kb_create_mode_embed"] = False
+                                    if "_original_kb_embed" in st.session_state:
+                                        del st.session_state["_original_kb_embed"]
                                     st.success(f"Created '{new_kb_name}'!")
                                     st.rerun()
 
@@ -180,25 +221,39 @@ with st.sidebar:
                                     st.error(f"Failed to create: {str(e)}")
                         else:
                             st.error(
-                                "Name can only contain letters, numbers, and underscores"
+                                "💡 Invalid name! Knowledge base names can only contain letters, numbers, and underscores (e.g., 'physics_papers', 'legal_docs')"
                             )
 
                 with col2:
-                    if st.button(
+                    cancel_clicked = st.button(
                         "Cancel", key="cancel_kb_embed", use_container_width=True
-                    ):
-                        st.rerun()
+                    )
+                    
+                if cancel_clicked:
+                    # Exit create mode and return to previous state
+                    st.session_state["_kb_create_mode_embed"] = False
+                    # Clear the text input
+                    if "new_kb_name_embed" in st.session_state:
+                        del st.session_state["new_kb_name_embed"]
+                    # Clear the original KB storage
+                    if "_original_kb_embed" in st.session_state:
+                        del st.session_state["_original_kb_embed"]
+                    # Set a flag to ignore the "+ Create new..." selection on next run
+                    st.session_state["_ignore_create_selection_embed"] = True
+                    st.rerun()
 
         else:
-            # Update the actual knowledge base selection
-            if selected_option != st.session_state.get(ss.StateKey.KNOWLEDGE_BASE):
+            # Update the actual knowledge base selection (but ignore "+ Create new...")
+            if (selected_option != st.session_state.get(ss.StateKey.KNOWLEDGE_BASE) and 
+                selected_option != "+ Create new..." and 
+                selected_option in available_knowledge_bases):
                 st.session_state[ss.StateKey.KNOWLEDGE_BASE] = selected_option
                 st.cache_resource.clear()  # Clear cache when switching KBs
                 st.rerun()
 
             # Show current KB info and delete option (if not default)
             if selected_option != "default":
-                col1, col2 = st.columns([3, 1])
+                col1, col2 = st.columns([2, 1])
                 with col1:
                     st.caption(f"Upload target: **{selected_option}**")
                 with col2:
@@ -206,10 +261,11 @@ with st.sidebar:
                         "Delete",
                         key=f"delete_embed_{selected_option}",
                         help=f"Delete '{selected_option}'",
+                        use_container_width=True,
                     ):
-                        st.session_state[
-                            f"_confirm_delete_embed_{selected_option}"
-                        ] = True
+                        st.session_state[f"_confirm_delete_embed_{selected_option}"] = (
+                            True
+                        )
                         st.rerun()
 
             else:
@@ -297,7 +353,7 @@ if len(uploaded_files) and st.button("Embed Text"):
             ):
                 pdf_progress.progress(
                     (j + 1) / len(pages),
-                    f"Processing {txt_name} page [{j + 1}" f"/{len(pages)}]...",
+                    f"Processing {txt_name} page [{j + 1}/{len(pages)}]...",
                 )
 
                 chunk_progress = st.progress(0)
@@ -314,7 +370,7 @@ if len(uploaded_files) and st.button("Embed Text"):
                 ):
                     chunk_progress.progress(
                         (chunk_index + 1) / chunk_count,
-                        f"Embedding chunk [{chunk_index + 1}" f"/{chunk_count}]...",
+                        f"Embedding chunk [{chunk_index + 1}/{chunk_count}]...",
                     )
 
                 chunk_progress.empty()
@@ -335,70 +391,83 @@ if len(uploaded_files) and st.button("Embed Text"):
             ):
                 chunk_progress.progress(
                     (chunk_index + 1) / chunk_count,
-                    f"Embedding chunk [{chunk_index + 1}" f"/{chunk_count}]...",
+                    f"Embedding chunk [{chunk_index + 1}/{chunk_count}]...",
                 )
 
             chunk_progress.empty()
 
     st.write("Done!")
 
+# Show success message if any
+if "_delete_success_message" in st.session_state:
+    st.success(st.session_state["_delete_success_message"])
+    del st.session_state["_delete_success_message"]
+
 # Handle knowledge base deletion confirmations outside sidebar to avoid freezing issues
+# Check for any deletion confirmation flags and handle them
+kb_to_delete = None
 for kb_name in available_knowledge_bases:
     if kb_name != "default" and st.session_state.get(
         f"_confirm_delete_embed_{kb_name}", False
     ):
+        kb_to_delete = kb_name
+        break
 
-        @st.dialog(f"Delete Knowledge Base: {kb_name}")
-        def confirm_delete():
-            st.write(
-                f"Are you sure you want to delete **{kb_name}** and all its documents?"
-            )
-            st.write("This action cannot be undone.")
+# Handle deletion confirmation dialog for the selected knowledge base
+if kb_to_delete:
 
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                if st.button(
-                    "Yes, delete",
-                    key=f"modal_confirm_del_embed_{kb_name}",
-                    use_container_width=True,
-                ):
-                    try:
-                        if st.session_state[ss.StateKey.USE_OPENSEARCH]:
-                            current_embedding = st.session_state[
-                                ss.StateKey.EMBEDDING_MODEL
-                            ]
-                            langchain_opensearch.delete_knowledge_base(
-                                kb_name, current_embedding
-                            )
-                        else:
-                            if "_in_memory_knowledge_bases" in st.session_state:
-                                if (
-                                    kb_name
-                                    in st.session_state["_in_memory_knowledge_bases"]
-                                ):
-                                    st.session_state[
-                                        "_in_memory_knowledge_bases"
-                                    ].remove(kb_name)
+    @st.dialog(f"Delete Knowledge Base: {kb_to_delete}")
+    def confirm_delete():
+        st.write(
+            f"Are you sure you want to delete **{kb_to_delete}** and all its documents?"
+        )
+        st.write("This action cannot be undone.")
 
-                        # Switch to default and refresh
-                        st.session_state[ss.StateKey.KNOWLEDGE_BASE] = "default"
-                        st.cache_resource.clear()
-                        if f"_confirm_delete_embed_{kb_name}" in st.session_state:
-                            del st.session_state[f"_confirm_delete_embed_{kb_name}"]
-                        st.success(f"Deleted '{kb_name}' successfully!")
-                        st.rerun()
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button(
+                "Yes, delete",
+                key=f"modal_confirm_del_embed_{kb_to_delete}",
+                use_container_width=True,
+            ):
+                try:
+                    if st.session_state[ss.StateKey.USE_OPENSEARCH]:
+                        current_embedding = st.session_state[
+                            ss.StateKey.EMBEDDING_MODEL
+                        ]
+                        langchain_opensearch.delete_knowledge_base(
+                            kb_to_delete, current_embedding
+                        )
+                    else:
+                        if "_in_memory_knowledge_bases" in st.session_state:
+                            if (
+                                kb_to_delete
+                                in st.session_state["_in_memory_knowledge_bases"]
+                            ):
+                                st.session_state["_in_memory_knowledge_bases"].remove(
+                                    kb_to_delete
+                                )
 
-                    except Exception as e:
-                        st.error(f"Failed to delete: {str(e)}")
-
-            with col2:
-                if st.button(
-                    "Cancel",
-                    key=f"modal_cancel_del_embed_{kb_name}",
-                    use_container_width=True,
-                ):
-                    if f"_confirm_delete_embed_{kb_name}" in st.session_state:
-                        del st.session_state[f"_confirm_delete_embed_{kb_name}"]
+                    # Switch to default and refresh
+                    st.session_state[ss.StateKey.KNOWLEDGE_BASE] = "default"
+                    st.cache_resource.clear()
+                    if f"_confirm_delete_embed_{kb_to_delete}" in st.session_state:
+                        del st.session_state[f"_confirm_delete_embed_{kb_to_delete}"]
+                    # Set success message flag to show outside dialog
+                    st.session_state["_delete_success_message"] = f"Deleted '{kb_to_delete}' successfully!"
                     st.rerun()
 
-        confirm_delete()
+                except Exception as e:
+                    st.error(f"Failed to delete: {str(e)}")
+
+        with col2:
+            if st.button(
+                "Cancel",
+                key=f"modal_cancel_del_embed_{kb_to_delete}",
+                use_container_width=True,
+            ):
+                if f"_confirm_delete_embed_{kb_to_delete}" in st.session_state:
+                    del st.session_state[f"_confirm_delete_embed_{kb_to_delete}"]
+                st.rerun()
+
+    confirm_delete()
