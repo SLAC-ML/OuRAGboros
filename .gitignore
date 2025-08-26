@@ -5,3 +5,4 @@ data/
 uv/
 ollama/
 .env
+CLAUDE.md
