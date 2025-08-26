@@ -1,0 +1,55 @@
+# Production configuration with high resource limits (~50% cluster usage)
+# Total cluster: 384 CPU cores, ~1.5TB RAM
+# Target usage: ~192 CPU cores, ~750GB RAM across all replicas
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - k8s.yaml
+
+patches:
+  - target:
+      kind: Deployment
+      name: ollama
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 8000m
+            memory: 32Gi
+          limits:
+            cpu: 16000m
+            memory: 64Gi
+  - target:
+      kind: Deployment
+      name: ouragboros
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 4000m
+            memory: 16Gi
+          limits:
+            cpu: 8000m
+            memory: 32Gi
+  - target:
+      kind: Deployment
+      name: opensearch
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 2000m
+            memory: 8Gi
+          limits:
+            cpu: 4000m
+            memory: 16Gi
