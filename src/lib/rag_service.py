@@ -1,7 +1,5 @@
 # lib/rag_service.py
-import io
 import itertools
-import time
 from typing import List, Dict, Tuple
 
 from langchain_community.vectorstores.opensearch_vector_search import (
@@ -103,7 +101,11 @@ def answer_query(
         tokens, tokens_for_save = itertools.tee(
             langchain_llm.query_llm(llm_model, query, system_msg), 2
         )
-        answer = "".join(tokens_for_save)
+        model_source, _ = langchain_utils.parse_model_name(llm_model)
+        if model_source in ["openai", "stanford", "google"]:
+            answer = "".join(chunk.content for chunk in tokens_for_save)
+        else:
+            answer = "".join(tokens_for_save)
     except Exception:
         # instantiate a streaming chat LLM
         model_source, model_name = langchain_utils.parse_model_name(llm_model)
@@ -117,7 +119,16 @@ def answer_query(
         elif model_source == "google":
             chat_llm = ChatGoogleGenerativeAI(
                 model=model_name,
-                #google_api_key=config.google_api_key,
+                # google_api_key=config.google_api_key,
+                temperature=0.0,
+                streaming=True,
+            )
+        elif model_source == "stanford":
+            # Stanford API uses OpenAI-compatible interface
+            chat_llm = ChatOpenAI(
+                model=model_name,
+                openai_api_key=config.stanford_api_key,
+                openai_api_base=config.stanford_base_url,
                 temperature=0.0,
                 streaming=True,
             )
@@ -135,7 +146,7 @@ def answer_query(
         tokens, tokens_for_save = itertools.tee(token_stream, 2)
 
         # collect the full answer
-        if model_source == "google":
+        if model_source in ["google", "openai", "stanford"]:
             answer = "".join(chunk.content for chunk in tokens_for_save)
         else:
             answer = "".join(tokens_for_save)

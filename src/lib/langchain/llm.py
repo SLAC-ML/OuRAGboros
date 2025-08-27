@@ -14,9 +14,17 @@ import lib.config as config
 
 import lib.langchain.util as langchain_utils
 
-_ollama_client = lambda: ollama.Client(host=config.ollama_base_url)
-_openai_client = lambda: openai.Client(api_key=config.openai_api_key)
-_google_client = lambda: genai.Client(api_key=config.google_api_key)
+def _ollama_client():
+    return ollama.Client(host=config.ollama_base_url)
+
+def _openai_client():
+    return openai.Client(api_key=config.openai_api_key, base_url=config.openai_base_url)
+
+def _stanford_client():
+    return openai.Client(api_key=config.stanford_api_key, base_url=config.stanford_base_url)
+
+def _google_client():
+    return genai.Client(api_key=config.google_api_key)
 
 _logger = logging.Logger(__name__)
 
@@ -34,7 +42,7 @@ def get_available_llms() -> list[str]:
     ollama_models = []
     try:
         ollama_models = _ollama_client().list()['models']
-    except:
+    except Exception:
         _logger.error("Failed to fetch Ollama models. Is the Ollama API accessible?",
                       exc_info=True)
 
@@ -42,22 +50,29 @@ def get_available_llms() -> list[str]:
     try:
         all_models = _openai_client().models.list() if config.openai_api_key else []
         openai_models = [m for m in all_models if m.id.startswith("gpt-")]
-    except:
+    except Exception:
         _logger.error("Failed to fetch OpenAI models. Is the OpenAI API accessible?",
+                      exc_info=True)
+
+    stanford_models = []
+    try:
+        all_models = _stanford_client().models.list() if config.stanford_api_key else []
+        stanford_models = [m for m in all_models]
+    except Exception:
+        _logger.error("Failed to fetch Stanford AI models. Is the Stanford AI API accessible?",
                       exc_info=True)
 
     google_models = []
     try:
         google_models = _google_client().models.list() if config.google_api_key else []
-        print("$$$$$$$$$$$$$$$$$google_models: ", google_models)
-    except:
+    except Exception:
         _logger.error("Failed to fetch Google models. Is the Google API accessible?",
                       exc_info=True)
-    print("$$$$$$$$$$$$$$$$$google_models: ", google_models)
 
     return [
         *[f'ollama:{remote_model['model']}' for remote_model in ollama_models],
         *[f'openai:{remote_model.id}' for remote_model in openai_models],
+        *[f'stanford:{remote_model.id}' for remote_model in stanford_models],
         *[f'google:{remote_model.name}' for remote_model in google_models],
     ] or [config.default_model]
 
@@ -89,9 +104,26 @@ def query_llm(
             HumanMessage(content=question)
         ])
     elif model_source == 'openai':
-        openai_llm = OpenAI(openai_api_key=config.openai_api_key, model_name=model_name, max_tokens=max_tokens)
+        openai_llm = OpenAI(
+            openai_api_key=config.openai_api_key,
+            openai_api_base=config.openai_base_url,
+            model_name=model_name, 
+            max_tokens=max_tokens
+        )
 
         return openai_llm.stream([
+            SystemMessage(content=system_message),
+            HumanMessage(content=question)
+        ])
+    elif model_source == 'stanford':
+        stanford_llm = OpenAI(
+            openai_api_key=config.stanford_api_key,
+            openai_api_base=config.stanford_base_url,
+            model_name=model_name, 
+            max_tokens=max_tokens
+        )
+
+        return stanford_llm.stream([
             SystemMessage(content=system_message),
             HumanMessage(content=question)
         ])
