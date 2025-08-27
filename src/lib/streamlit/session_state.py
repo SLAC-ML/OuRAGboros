@@ -154,7 +154,7 @@ def get_vector_store(
     if use_opensearch_vectorstore:
         return langchain_opensearch.opensearch_doc_vector_store(model, knowledge_base)
     else:
-        # For in-memory storage, append knowledge base to model name for isolation
+        # For in-memory storage, pass knowledge base parameter for proper isolation
         return langchain_embeddings.get_in_memory_vector_store(
-            f"{model}#{knowledge_base}"
+            model, knowledge_base
         )

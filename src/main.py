@@ -6,6 +6,8 @@ import streamlit as st
 import lib.config as config
 import lib.streamlit.nav as nav
 import lib.streamlit.session_state as ss
+import lib.streamlit.opensearch_toggle as opensearch_toggle
+import lib.streamlit.kb_utils as kb_utils
 import lib.rag_service as service
 
 # Streamlit page configuration
@@ -23,20 +25,19 @@ st.title(":snake: LangChain OuRAGboros")
 
 # Sidebar: Configuration
 with st.sidebar:
-    st.toggle(
-        "Use OpenSearch",
-        key=ss.StateKey.USE_OPENSEARCH,
-        help=f"Requires an OpenSearch instance running at {config.opensearch_base_url}. "
-             "If this toggle is off, all documents are retrieved from an in-memory vector "
-             "store which is lost when the application terminates.",
-    )
+    # OPENSEARCH TOGGLE WITH CONFIRMATION
+    opensearch_toggle.render_opensearch_toggle()
 
     # Knowledge Base Management Section
     with st.container(border=True):
         st.subheader("Knowledge Base")
 
-        # Enhanced options list: existing KBs + "Create new..."
-        kb_options = available_knowledge_bases + ["+ Create new..."]
+        # Get knowledge base list using utility with fallback handling
+        current_available_kbs, storage_info = kb_utils.get_current_knowledge_bases(available_knowledge_bases)
+
+
+        # Enhanced options list: current KBs + "Create new..."
+        kb_options = current_available_kbs + ["+ Create new..."]
 
         # Knowledge Base Selection
         # Disable selectbox when in create mode to prevent re-rendering issues
@@ -52,14 +53,14 @@ with st.sidebar:
             # In create mode, show the original KB but keep disabled
             display_index = (
                 kb_options.index(current_kb)
-                if current_kb in available_knowledge_bases
+                if current_kb in current_available_kbs
                 else 0
             )
         else:
             # Normal mode - show current KB
             display_index = (
                 kb_options.index(current_kb)
-                if current_kb in available_knowledge_bases
+                if current_kb in current_available_kbs
                 else 0
             )
 
@@ -102,7 +103,7 @@ with st.sidebar:
                         st.error(
                             "💡 Please enter a name for your knowledge base. Only letters, numbers, and underscores are allowed."
                         )
-                    elif new_kb_name in available_knowledge_bases:
+                    elif new_kb_name in current_available_kbs:
                         st.error(
                             f"💡 Knowledge base '{new_kb_name}' already exists! Please choose a different name."
                         )
@@ -138,6 +139,7 @@ with st.sidebar:
                                     new_kb_name
                                 )
                                 st.cache_resource.clear()
+
                                 # Exit create mode and clean up
                                 st.session_state["_kb_create_mode_main"] = False
                                 # Increment counter to refresh selectbox
@@ -175,11 +177,10 @@ with st.sidebar:
             if (
                 selected_option != st.session_state.get(ss.StateKey.KNOWLEDGE_BASE)
                 and selected_option != "+ Create new..."
-                and selected_option in available_knowledge_bases
+                and selected_option in current_available_kbs
             ):
                 st.session_state[ss.StateKey.KNOWLEDGE_BASE] = selected_option
-                st.cache_resource.clear()  # Clear cache when switching KBs
-                st.rerun()
+                # Note: Let Streamlit handle re-render automatically (no explicit st.rerun)
 
             # Show current KB info and delete option (if not default)
             if selected_option != "default":
@@ -199,7 +200,7 @@ with st.sidebar:
             else:
                 st.caption("Active: **default** (contains your original documents)")
 
-    st.header("Search Configuration")
+    # st.header("Search Configuration")
     st.selectbox(
         "Embedding model:",
         available_embeddings,
@@ -255,15 +256,19 @@ if "_create_success_message" in st.session_state:
     st.success(st.session_state["_create_success_message"])
     del st.session_state["_create_success_message"]
 
+# Handle OpenSearch toggle confirmation dialog
+opensearch_toggle.render_opensearch_confirmation_dialog()
+
 # Handle knowledge base deletion confirmations outside sidebar to avoid freezing issues
 # Check for any deletion confirmation flags and handle them
 kb_to_delete = None
-for kb_name in available_knowledge_bases:
-    if kb_name != "default" and st.session_state.get(
-        f"_confirm_delete_{kb_name}", False
-    ):
-        kb_to_delete = kb_name
-        break
+# Check all possible KB names from session state keys
+for key in st.session_state.keys():
+    if key.startswith("_confirm_delete_"):
+        kb_name = key.replace("_confirm_delete_", "")
+        if kb_name != "default" and st.session_state.get(key, False):
+            kb_to_delete = kb_name
+            break
 
 # Handle deletion confirmation dialog for the selected knowledge base
 if kb_to_delete:
@@ -305,6 +310,7 @@ if kb_to_delete:
                     # Switch to default and refresh
                     st.session_state[ss.StateKey.KNOWLEDGE_BASE] = "default"
                     st.cache_resource.clear()
+
                     if f"_confirm_delete_{kb_to_delete}" in st.session_state:
                         del st.session_state[f"_confirm_delete_{kb_to_delete}"]
                     # Set success message flag to show outside dialog

@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import threading
 from typing import Tuple
 
 import opensearchpy.exceptions
@@ -12,7 +13,9 @@ import lib.config as config
 
 import lib.langchain.embeddings as langchain_embeddings
 
+# Thread-safe cache for OpenSearch configurations
 _opensearch_configs = {}
+_opensearch_configs_lock = threading.Lock()
 
 def get_opensearch_index_settings(
     embedding_model: str, knowledge_base: str = "default"
@@ -27,25 +30,28 @@ def get_opensearch_index_settings(
     """
     cache_key = f"{embedding_model}#{knowledge_base}"
     if cache_key not in _opensearch_configs:
-        logging.debug(f"{cache_key} not found in _opensearch_configs; generating..")
-        vector_size = len(
-            langchain_embeddings.get_embedding(embedding_model).embed_query("hi")
-        )
-        model_id = hashlib.sha256(embedding_model.encode("utf-8")).hexdigest()
+        with _opensearch_configs_lock:
+            # Double-check locking pattern for thread safety
+            if cache_key not in _opensearch_configs:
+                logging.debug(f"{cache_key} not found in _opensearch_configs; generating..")
+                
+                # Use the new thread-safe vector size function
+                vector_size = langchain_embeddings.get_vector_size(embedding_model)
+                model_id = hashlib.sha256(embedding_model.encode("utf-8")).hexdigest()
 
-        # Sanitize knowledge base name for use in index name
-        kb_safe = knowledge_base.lower().replace(" ", "_").replace("-", "_")
-        kb_safe = "".join(c for c in kb_safe if c.isalnum() or c == "_")
+                # Sanitize knowledge base name for use in index name
+                kb_safe = knowledge_base.lower().replace(" ", "_").replace("-", "_")
+                kb_safe = "".join(c for c in kb_safe if c.isalnum() or c == "_")
 
-        # For backward compatibility, use original format for "default" knowledge base
-        if knowledge_base == "default":
-            index_name = f"{config.opensearch_index_prefix}_{vector_size}_{model_id}"
-        else:
-            index_name = (
-                f"{config.opensearch_index_prefix}_{kb_safe}_{vector_size}_{model_id}"
-            )
+                # For backward compatibility, use original format for "default" knowledge base
+                if knowledge_base == "default":
+                    index_name = f"{config.opensearch_index_prefix}_{vector_size}_{model_id}"
+                else:
+                    index_name = (
+                        f"{config.opensearch_index_prefix}_{kb_safe}_{vector_size}_{model_id}"
+                    )
 
-        _opensearch_configs[cache_key] = (index_name, vector_size)
+                _opensearch_configs[cache_key] = (index_name, vector_size)
 
     return _opensearch_configs[cache_key]
 
@@ -203,10 +209,11 @@ def delete_knowledge_base(knowledge_base: str, embedding_model: str) -> bool:
                 f"Successfully deleted knowledge base '{knowledge_base}' (index: {index_name})"
             )
             
-            # Clear cache entry
+            # Clear cache entry (thread-safe)
             cache_key = f"{embedding_model}#{knowledge_base}"
-            if cache_key in _opensearch_configs:
-                del _opensearch_configs[cache_key]
+            with _opensearch_configs_lock:
+                if cache_key in _opensearch_configs:
+                    del _opensearch_configs[cache_key]
             
             return True
         else:

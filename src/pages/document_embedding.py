@@ -8,6 +8,8 @@ from langchain_core.vectorstores import VectorStore
 
 import lib.streamlit.nav as nav
 import lib.streamlit.session_state as ss
+import lib.streamlit.opensearch_toggle as opensearch_toggle
+import lib.streamlit.kb_utils as kb_utils
 
 import lib.langchain.models as langchain_models
 import lib.langchain.opensearch as langchain_opensearch
@@ -94,20 +96,18 @@ def _upload_text_to_vector_store(
 
 
 with st.sidebar:
-    st.toggle(
-        "Use OpenSearch",
-        key=ss.StateKey.USE_OPENSEARCH,
-        help=f"Requires an OpenSearch instance running at {config.opensearch_base_url}. "
-             "If this toggle is off, all documents are stored in an in-memory vector "
-             "store which is lost when the application terminates.",
-    )
+    # OPENSEARCH TOGGLE WITH CONFIRMATION
+    opensearch_toggle.render_opensearch_toggle()
 
     # Knowledge Base Management Section (same simplified UI as main page)
     with st.container(border=True):
         st.subheader("Knowledge Base")
 
-        # Enhanced options list: existing KBs + "Create new..."
-        kb_options = available_knowledge_bases + ["+ Create new..."]
+        # Get knowledge base list using utility with fallback handling
+        current_available_kbs, storage_info = kb_utils.get_current_knowledge_bases(available_knowledge_bases)
+
+        # Enhanced options list: current KBs + "Create new..."
+        kb_options = current_available_kbs + ["+ Create new..."]
 
         # Knowledge Base Selection
         # Disable selectbox when in create mode to prevent re-rendering issues
@@ -123,14 +123,14 @@ with st.sidebar:
             # In create mode, show the original KB but keep disabled
             display_index = (
                 kb_options.index(current_kb)
-                if current_kb in available_knowledge_bases
+                if current_kb in current_available_kbs
                 else 0
             )
         else:
             # Normal mode - show current KB
             display_index = (
                 kb_options.index(current_kb)
-                if current_kb in available_knowledge_bases
+                if current_kb in current_available_kbs
                 else 0
             )
 
@@ -175,7 +175,7 @@ with st.sidebar:
                         st.error(
                             "💡 Please enter a name for your knowledge base. Only letters, numbers, and underscores are allowed."
                         )
-                    elif new_kb_name in available_knowledge_bases:
+                    elif new_kb_name in current_available_kbs:
                         st.error(
                             f"💡 Knowledge base '{new_kb_name}' already exists! Please choose a different name."
                         )
@@ -246,11 +246,10 @@ with st.sidebar:
             if (
                 selected_option != st.session_state.get(ss.StateKey.KNOWLEDGE_BASE)
                 and selected_option != "+ Create new..."
-                and selected_option in available_knowledge_bases
+                and selected_option in current_available_kbs
             ):
                 st.session_state[ss.StateKey.KNOWLEDGE_BASE] = selected_option
-                st.cache_resource.clear()  # Clear cache when switching KBs
-                st.rerun()
+                # Note: Let Streamlit handle re-render automatically (no explicit st.rerun)
 
             # Show current KB info and delete option (if not default)
             if selected_option != "default":
@@ -272,9 +271,9 @@ with st.sidebar:
             else:
                 st.caption("Upload target: **default** (your original knowledge base)")
 
-    st.header('Document Embedding Configuration')
-    st.text("Upload and embed documents into the selected knowledge base.")
-    
+    # st.header('Document Embedding Configuration')
+    # st.text("Upload and embed documents into the selected knowledge base.")
+
     st.selectbox(
         "Embedding model:",
         available_embeddings,
@@ -421,12 +420,13 @@ if "_create_success_message" in st.session_state:
 # Handle knowledge base deletion confirmations outside sidebar to avoid freezing issues
 # Check for any deletion confirmation flags and handle them
 kb_to_delete = None
-for kb_name in available_knowledge_bases:
-    if kb_name != "default" and st.session_state.get(
-        f"_confirm_delete_embed_{kb_name}", False
-    ):
-        kb_to_delete = kb_name
-        break
+# Use session state keys to find deletion flags (same pattern as main.py)
+for key in st.session_state.keys():
+    if key.startswith("_confirm_delete_embed_"):
+        kb_name = key.replace("_confirm_delete_embed_", "")
+        if kb_name != "default" and st.session_state.get(key, False):
+            kb_to_delete = kb_name
+            break
 
 # Handle deletion confirmation dialog for the selected knowledge base
 if kb_to_delete:
@@ -488,3 +488,6 @@ if kb_to_delete:
                 st.rerun()
 
     confirm_delete()
+
+# Handle OpenSearch toggle confirmation dialog
+opensearch_toggle.render_opensearch_confirmation_dialog()
