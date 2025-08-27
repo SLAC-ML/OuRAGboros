@@ -390,7 +390,7 @@ spec:
                 configMapKeyRef:
                   key: SENTENCE_TRANSFORMERS_HOME
                   name: kubernetes-env
-          image: slacml/ouragboros:25.08.26
+          image: slacml/ouragboros:25.08.27
           name: ouragboros
           ports:
             - containerPort: 8501

@@ -69,10 +69,17 @@ def ensure_opensearch_index(
         )
 
         opensearch_client = OpenSearch([config.opensearch_base_url])
-        opensearch_client.indices.create(
-            index=index_name,
-            body=config.opensearch_index_settings(vector_size=vector_size),
-        )
+        
+        # Check if index already exists before trying to create it
+        if not opensearch_client.indices.exists(index=index_name):
+            opensearch_client.indices.create(
+                index=index_name,
+                body=config.opensearch_index_settings(vector_size=vector_size),
+            )
+            logging.debug(f"Created new OpenSearch index: {index_name}")
+        else:
+            logging.debug(f"OpenSearch index already exists: {index_name}")
+            
     except opensearchpy.exceptions.RequestError as e:
         if e.status_code != 400:
             raise e
@@ -102,49 +109,110 @@ def opensearch_doc_vector_store(
 def get_available_knowledge_bases() -> list[str]:
     """
     Returns a list of available knowledge bases by examining existing OpenSearch indices.
+    Knowledge bases are ordered by creation time (oldest first), with "default" always first.
     
     :return: List of knowledge base names
     """
     try:
         opensearch_client = OpenSearch([config.opensearch_base_url])
-        indices = opensearch_client.indices.get_alias(
-            index=f"{config.opensearch_index_prefix}_*"
-        )
-
-        knowledge_bases = set()
+        
+        # Get indices with creation timestamps using OpenSearch client
+        try:
+            indices_response = opensearch_client.cat.indices(
+                index="*", h="index,creation.date", format="json", timeout=10
+            )
+            indices_info = indices_response
+        except Exception as e:
+            logging.warning(f"Failed to get indices with timestamps: {e}, falling back to basic listing")
+            # Fallback to basic index listing without timestamps
+            indices_response = opensearch_client.cat.indices(index="*", h="index", format="json")
+            indices_info = [{"index": idx["index"], "creation.date": "0"} for idx in indices_response]
+        
+        # Filter and parse OuRAGboros indices
+        kb_timestamps = {}
         prefix = config.opensearch_index_prefix + "_"
-
-        logging.debug(f"Found indices: {list(indices.keys())}")
-
-        for index_name in indices.keys():
+        
+        for idx_info in indices_info:
+            index_name = idx_info['index']
             if index_name.startswith(prefix):
-                # Parse index name to extract knowledge base
-                # Format examples:
-                # - ouragboros_768_abc123... (old format = "default")
-                # - ouragboros_test_kb_768_abc123... (new format = "test_kb")
+                creation_time = float(idx_info['creation.date'])
                 
+                # Parse index name to extract knowledge base
                 remaining = index_name[len(prefix):]
                 parts = remaining.split("_")
                 
-                # If starts with a number, it's the old format (default knowledge base)
+                # If starts with a number, it's the default format
                 if parts[0].isdigit():
-                    knowledge_bases.add("default")
+                    kb_name = "default"
                 else:
                     # Find where the vector size starts (first numeric part after kb name)
                     kb_parts = []
-                    for i, part in enumerate(parts):
+                    for part in parts:
                         if part.isdigit():
                             break
                         kb_parts.append(part)
                     
                     if kb_parts:
                         kb_name = "_".join(kb_parts)
-                        knowledge_bases.add(kb_name)
+                    else:
+                        continue
+                
+                # Use the earliest timestamp for each knowledge base (in case of multiple indices)
+                if kb_name not in kb_timestamps or creation_time < kb_timestamps[kb_name]:
+                    kb_timestamps[kb_name] = creation_time
 
-        result = sorted(list(knowledge_bases))
-        logging.debug(f"Discovered knowledge bases: {result}")
-        return result
+        if not kb_timestamps:
+            return ["default"]
+
+        # Sort by creation time, but ensure "default" is always first
+        sorted_kbs = sorted(kb_timestamps.items(), key=lambda x: x[1])  # Sort by timestamp
+        kb_list = [kb for kb, _ in sorted_kbs]
+        
+        # Ensure "default" is always first if present
+        if "default" in kb_list:
+            kb_list.remove("default")
+            kb_list.insert(0, "default")
+
+        logging.debug(f"Knowledge bases ordered by creation time: {kb_list}")
+        return kb_list
 
     except Exception as e:
         logging.warning(f"Could not retrieve knowledge bases from OpenSearch: {e}")
         return ["default"]
+
+
+def delete_knowledge_base(knowledge_base: str, embedding_model: str) -> bool:
+    """
+    Deletes a knowledge base by removing its OpenSearch index.
+
+    :param knowledge_base: The knowledge base name to delete
+    :param embedding_model: The embedding model used (needed to find correct index)
+    :return: True if successful, False otherwise
+    """
+    if knowledge_base == "default":
+        raise ValueError("Cannot delete the default knowledge base")
+
+    try:
+        index_name, _ = get_opensearch_index_settings(embedding_model, knowledge_base)
+        opensearch_client = OpenSearch([config.opensearch_base_url])
+
+        # Check if index exists
+        if opensearch_client.indices.exists(index=index_name):
+            opensearch_client.indices.delete(index=index_name)
+            logging.info(
+                f"Successfully deleted knowledge base '{knowledge_base}' (index: {index_name})"
+            )
+            
+            # Clear cache entry
+            cache_key = f"{embedding_model}#{knowledge_base}"
+            if cache_key in _opensearch_configs:
+                del _opensearch_configs[cache_key]
+            
+            return True
+        else:
+            logging.warning(f"Index {index_name} does not exist")
+            return False
+
+    except Exception as e:
+        logging.error(f"Failed to delete knowledge base '{knowledge_base}': {e}")
+        return False

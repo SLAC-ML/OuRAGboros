@@ -74,13 +74,12 @@ def init() -> tuple[list[str], list[str], list[str]]:
     # Try to get OpenSearch knowledge bases if available
     try:
         opensearch_kbs = langchain_opensearch.get_available_knowledge_bases()
-        for kb in opensearch_kbs:
-            if kb not in available_knowledge_bases:
-                available_knowledge_bases.append(kb)
+        # OpenSearch function already returns them in correct order (default first, then by creation time)
+        # Replace our list with the properly ordered one, but preserve any in-memory KBs not in OpenSearch
+        in_memory_only = [kb for kb in available_knowledge_bases if kb not in opensearch_kbs]
+        available_knowledge_bases = opensearch_kbs + in_memory_only
     except:
         pass  # OpenSearch not available, use in-memory only
-
-    available_knowledge_bases.sort()
 
     default_session_state = [
         (StateKey.RAG_DOCS, []),
