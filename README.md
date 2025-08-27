@@ -288,3 +288,13 @@ $ uv run finetune_model <text file path> \
 Once the model is trained, just update the `HUGGINGFACE_FINETUNED_EMBEDDING_MODEL` 
 environment variable in `.default.env` to `my-cool-model`, refresh your browser page, 
 and start experimenting!
+
+## 🛠️ Utility Scripts
+
+The `scripts/` directory contains helpful utilities for deployment and debugging:
+
+- **Docker Management**: `build-and-push.sh` for consistent image building with date-based tags
+- **OpenSearch Browser**: `opensearch-browser.sh` for exploring and debugging the knowledge base
+- **Legacy Tools**: Various deployment and monitoring scripts
+
+See [`scripts/README.md`](scripts/README.md) for detailed usage instructions.
