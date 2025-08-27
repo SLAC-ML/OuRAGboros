@@ -24,6 +24,7 @@ class QueryRequest(BaseModel):
     prompt: str
     files: List[FileUpload] = []
     history: List[Dict[str, str]] = []
+    knowledge_base: str = "default"
 
 
 app = FastAPI()
@@ -50,6 +51,7 @@ def ask(req: QueryRequest):
         user_files=user_files,
         history=req.history,
         use_rag=req.use_rag,
+        knowledge_base=req.knowledge_base,
     )
     # only return doc metadata, not full text
     doc_info = [

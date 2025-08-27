@@ -26,7 +26,7 @@ nav.pages()
 
 # Initialize session state
 #
-available_llms, available_embeddings = ss.init()
+available_llms, available_embeddings, available_knowledge_bases = ss.init()
 
 st.title(':page_facing_up: Document Embedding')
 
@@ -94,7 +94,6 @@ def _upload_text_to_vector_store(
 
 
 with st.sidebar:
-    st.header('Search Configuration')
     st.toggle(
         "Use OpenSearch",
         key=ss.StateKey.USE_OPENSEARCH,
@@ -102,6 +101,143 @@ with st.sidebar:
              "If this toggle is off, all documents are stored in an in-memory vector "
              "store which is lost when the application terminates.",
     )
+
+    # Knowledge Base Management Section (same as main page)
+    with st.container(border=True):
+        st.subheader("Knowledge Base")
+
+        # Check if we're in create mode
+        is_in_create_mode = st.session_state.get("_kb_create_mode_embed", False)
+        
+        # Determine what to display in the selectbox
+        if is_in_create_mode:
+            display_selection = st.session_state.get("_original_kb_embed", "default")
+        else:
+            display_selection = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
+
+        # Enhanced options list: existing KBs + "Create new..."
+        kb_options = available_knowledge_bases + ["+ Create new..."]
+
+        # Knowledge Base Selection
+        selected_option = st.selectbox(
+            "Target knowledge base for uploads:",
+            kb_options,
+            index=kb_options.index(display_selection) if display_selection in available_knowledge_bases else 0,
+            key="kb_selector_embed",
+            help="Choose where to store uploaded documents",
+            disabled=is_in_create_mode,
+        )
+
+        # Handle "Create new" selection
+        # Check if we should ignore this selection (e.g., after cancel)
+        ignore_create_selection = st.session_state.get("_ignore_create_selection_embed", False)
+        if ignore_create_selection:
+            # Clear the ignore flag and don't enter create mode
+            del st.session_state["_ignore_create_selection_embed"]
+        elif selected_option == "+ Create new..." and not is_in_create_mode:
+            # Store current KB selection before entering create mode
+            st.session_state["_original_kb_embed"] = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
+            # Set create mode state
+            st.session_state["_kb_create_mode_embed"] = True
+            st.rerun()
+        
+        # Show create mode UI if in create mode
+        if is_in_create_mode:
+            with st.container():
+                st.write("**Create New Knowledge Base**")
+                st.info("💡 Enter a name for your new knowledge base below:")
+                new_kb_name = st.text_input(
+                    "Name:",
+                    placeholder="e.g., physics_papers, legal_docs",
+                    help="Only letters, numbers, and underscores allowed",
+                    key="new_kb_name_embed",
+                    label_visibility="collapsed",
+                )
+
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    create_clicked = st.button(
+                        "Create", key="create_kb_btn_embed", use_container_width=True
+                    )
+                    
+                    if create_clicked and new_kb_name:
+                        import re
+
+                        if re.match(r"^[a-zA-Z0-9_]+$", new_kb_name):
+                            if new_kb_name in available_knowledge_bases:
+                                st.error(f"'{new_kb_name}' already exists!")
+                            else:
+                                try:
+                                    current_embedding = st.session_state[
+                                        ss.StateKey.EMBEDDING_MODEL
+                                    ]
+                                    
+                                    # Create the knowledge base by ensuring the index exists
+                                    if st.session_state[ss.StateKey.USE_OPENSEARCH]:
+                                        langchain_opensearch.ensure_opensearch_index(
+                                            current_embedding, new_kb_name
+                                        )
+                                    else:
+                                        # For in-memory, add to tracking list
+                                        if "_in_memory_knowledge_bases" not in st.session_state:
+                                            st.session_state["_in_memory_knowledge_bases"] = []
+                                        if new_kb_name not in st.session_state["_in_memory_knowledge_bases"]:
+                                            st.session_state["_in_memory_knowledge_bases"].append(new_kb_name)
+                                    
+                                    # Exit create mode and set new KB
+                                    st.session_state["_kb_create_mode_embed"] = False
+                                    if "new_kb_name_embed" in st.session_state:
+                                        del st.session_state["new_kb_name_embed"]
+                                    if "_original_kb_embed" in st.session_state:
+                                        del st.session_state["_original_kb_embed"]
+                                    st.session_state[ss.StateKey.KNOWLEDGE_BASE] = new_kb_name
+                                    st.cache_resource.clear()
+                                    st.success(f"Knowledge base '{new_kb_name}' created successfully!")
+                                    st.rerun()
+
+                                except Exception as e:
+                                    st.error(f"Failed to create: {str(e)}")
+                        else:
+                            st.error(
+                                "💡 Invalid name! Knowledge base names can only contain letters, numbers, and underscores (e.g., 'physics_papers', 'legal_docs')"
+                            )
+
+                with col2:
+                    cancel_clicked = st.button(
+                        "Cancel", key="cancel_kb_embed", use_container_width=True
+                    )
+                    
+                if cancel_clicked:
+                    # Exit create mode and return to previous state
+                    st.session_state["_kb_create_mode_embed"] = False
+                    # Clear the text input
+                    if "new_kb_name_embed" in st.session_state:
+                        del st.session_state["new_kb_name_embed"]
+                    # Clear the original KB storage
+                    if "_original_kb_embed" in st.session_state:
+                        del st.session_state["_original_kb_embed"]
+                    # Set a flag to ignore the "+ Create new..." selection on next run
+                    st.session_state["_ignore_create_selection_embed"] = True
+                    st.rerun()
+
+        else:
+            # Update the actual knowledge base selection (but ignore "+ Create new...")
+            if (selected_option != st.session_state.get(ss.StateKey.KNOWLEDGE_BASE) and 
+                selected_option != "+ Create new..." and 
+                selected_option in available_knowledge_bases):
+                st.session_state[ss.StateKey.KNOWLEDGE_BASE] = selected_option
+                st.cache_resource.clear()  # Clear cache when switching KBs
+                st.rerun()
+
+            # Show current KB info
+            if selected_option != "default":
+                st.caption(f"Target: **{selected_option}**")
+            else:
+                st.caption("Target: **default** (your original knowledge base)")
+
+    st.header('Document Embedding Configuration')
+    st.text("Upload and embed documents into the selected knowledge base.")
+    
     st.selectbox(
         "Embedding model:",
         available_embeddings,
@@ -126,11 +262,11 @@ with st.sidebar:
             help='Specifies the percent overlap allowed between text chunks.',
         )
 
+current_kb = st.session_state[ss.StateKey.KNOWLEDGE_BASE]
 st.warning(
-    'IMPORTANT: When you upload documents, they are embedded _only_ for the '
-    'selected embedding model (currently '
-    f'`{st.session_state[ss.StateKey.EMBEDDING_MODEL]}`). When uploading documents,'
-    f' please be sure that you embed your source texts with every model you wish to use.'
+    f'IMPORTANT: Documents will be uploaded to the **{current_kb}** knowledge base '
+    f'and embedded with the **{st.session_state[ss.StateKey.EMBEDDING_MODEL]}** model. '
+    'Documents are isolated per knowledge base and embedding model combination.'
 )
 
 # Upload text documents to OpenSearch
@@ -150,12 +286,14 @@ if len(uploaded_files) and st.button('Embed Text'):
 
     vector_store = ss.get_vector_store(
         st.session_state[ss.StateKey.USE_OPENSEARCH],
-        st.session_state[ss.StateKey.EMBEDDING_MODEL]
+        st.session_state[ss.StateKey.EMBEDDING_MODEL],
+        st.session_state[ss.StateKey.KNOWLEDGE_BASE]
     )
     if st.session_state[ss.StateKey.USE_OPENSEARCH]:
         st.text('Ensuring OpenSearch index existence...')
         langchain_opensearch.ensure_opensearch_index(
-            st.session_state[ss.StateKey.EMBEDDING_MODEL]
+            st.session_state[ss.StateKey.EMBEDDING_MODEL],
+            st.session_state[ss.StateKey.KNOWLEDGE_BASE]
         )
 
     text_upload_progress = st.progress(0)
