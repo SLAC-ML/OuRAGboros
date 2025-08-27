@@ -6,3 +6,4 @@ uv/
 ollama/
 .env
 CLAUDE.md
+.vscode
