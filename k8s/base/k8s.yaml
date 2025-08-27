@@ -7,6 +7,9 @@ data:
   OLLAMA_BASE_URL: 'http://ollama:11434'
   OLLAMA_MODEL_DEFAULT: 'ollama:llama3.1'
   OPENAI_API_KEY: ''
+  OPENAI_BASE_URL: ''
+  STANFORD_API_KEY: ''
+  STANFORD_BASE_URL: 'https://aiapi-prod.stanford.edu/v1'
   OPENSEARCH_BASE_URL: 'http://opensearch:9200'
   OPENSEARCH_INDEX_PREFIX: 'ouragboros'
   OPENSEARCH_JAVA_OPTS: '-Xms512m -Xmx512m'
@@ -337,6 +340,21 @@ spec:
                 configMapKeyRef:
                   key: OPENAI_API_KEY
                   name: kubernetes-env
+            - name: OPENAI_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: OPENAI_BASE_URL
+                  name: kubernetes-env
+            - name: STANFORD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stanford-ai-secret
+                  key: api-key
+            - name: STANFORD_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: STANFORD_BASE_URL
+                  name: kubernetes-env
             - name: GOOGLE_API_KEY
               valueFrom:
                 configMapKeyRef:
@@ -372,7 +390,7 @@ spec:
                 configMapKeyRef:
                   key: SENTENCE_TRANSFORMERS_HOME
                   name: kubernetes-env
-          image: slacml/ouragboros:latest
+          image: slacml/ouragboros:25.08.26-2
           name: ouragboros
           ports:
             - containerPort: 8501
