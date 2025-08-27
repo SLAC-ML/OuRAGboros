@@ -1,0 +1,86 @@
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.19.0
+    labels:
+      kompose.service.type: ClusterIP
+      kompose.volume.size: 1Gi
+    ports:
+      - 9200:9200
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=${OPENSEARCH_JAVA_OPTS}"
+      - "DISABLE_INSTALL_DEMO_CONFIG=true"
+      - "DISABLE_SECURITY_PLUGIN=true"
+    env_file:
+      - .env  # Use local .env file
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    restart: "always"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+  ollama:
+    image: ollama/ollama:0.5.11
+    # platform: linux/amd64  # Removed for Intel Mac compatibility
+    labels:
+      kompose.service.type: ClusterIP
+      kompose.volume.size: 5Gi
+    ports:
+      - 11434:11434
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: "always"
+
+  ouragboros:
+    build: .
+    image: ouragboros:local  # Local image tag
+    labels:
+      kompose.service.expose: "true"
+      kompose.volume.size: 3Gi
+    ports:
+      - 8501:8501
+      - 8001:8001
+    environment:
+      # Loaded from .env
+      #
+      - "OLLAMA_BASE_URL=${OLLAMA_BASE_URL}"
+      - "OLLAMA_MODEL_DEFAULT=${OLLAMA_MODEL_DEFAULT}"
+      - "SENTENCE_TRANSFORMERS_HOME=${SENTENCE_TRANSFORMERS_HOME}"
+      - "PDF_PARSER_MODEL=${PDF_PARSER_MODEL}"
+      - "OPENSEARCH_BASE_URL=${OPENSEARCH_BASE_URL}"
+      - "OPENSEARCH_INDEX_PREFIX=${OPENSEARCH_INDEX_PREFIX}"
+      - "PREFER_OPENSEARCH=${PREFER_OPENSEARCH}"
+      - "HUGGINGFACE_EMBEDDING_MODEL_DEFAULT=${HUGGINGFACE_EMBEDDING_MODEL_DEFAULT}"
+      - "HUGGINGFACE_FINETUNED_EMBEDDING_MODEL=${HUGGINGFACE_FINETUNED_EMBEDDING_MODEL}"
+      - "OPENAI_API_KEY=${OPENAI_API_KEY}"
+      - "GOOGLE_API_KEY=${GOOGLE_API_KEY}"
+      - "STANFORD_API_KEY=${STANFORD_API_KEY}"
+      - "STANFORD_BASE_URL=${STANFORD_BASE_URL}"
+    env_file:
+      - .env  # Use local .env file
+    volumes:
+      - ouragboros_models:/app/models
+    restart: "always"
+    depends_on:
+      - ollama
+      - opensearch
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: /app
+          ignore:
+            - .venv/
+            - data/
+            - models/
+        - action: rebuild
+          path: ./uv.lock
+
+volumes:
+  opensearch_data:
+  ollama_data:
+  ouragboros_models:
