@@ -1,9 +1,30 @@
 #!/bin/bash
 # OpenSearch Browser for OuRAGboros
-# Usage: ./scripts/opensearch-browser.sh [command] [knowledge_base]
+# Usage: ./scripts/opensearch-browser.sh [command] [knowledge_base] [-m]
 # Commands: indices, kbs, docs [kb], count [kb], search <term> [kb], sample [kb], cleanup
+# Default: OpenSearch storage. Use -m flag for in-memory storage via API.
 
 set -e
+
+# Parse arguments and flags
+USE_MEMORY=false
+ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -m|--memory)
+            USE_MEMORY=true
+            shift
+            ;;
+        *)
+            ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Reset positional parameters
+set -- "${ARGS[@]}"
 
 # Colors
 RED='\033[0;31m'
@@ -12,11 +33,20 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Start port forwarding if not already running
-start_port_forward() {
+# Start OpenSearch port forwarding if not already running
+start_opensearch_port_forward() {
     if ! pgrep -f "kubectl port-forward.*opensearch.*9200:9200" > /dev/null; then
         echo -e "${BLUE}Starting OpenSearch port forwarding...${NC}"
         kubectl port-forward -n ouragboros svc/opensearch 9200:9200 > /dev/null 2>&1 &
+        sleep 3
+    fi
+}
+
+# Start API port forwarding if not already running
+start_api_port_forward() {
+    if ! pgrep -f "kubectl port-forward.*ouragboros.*8001:8001" > /dev/null; then
+        echo -e "${BLUE}Starting API port forwarding...${NC}"
+        kubectl port-forward -n ouragboros svc/ouragboros 8001:8001 > /dev/null 2>&1 &
         sleep 3
     fi
 }
@@ -34,9 +64,45 @@ show_indices() {
     curl -s "localhost:9200/_cat/indices?v&h=index,docs.count,store.size" | grep -E "(ouragboros|top_queries)" || echo "No OuRAGboros indices found"
 }
 
+# Check for API availability (port 8001) for in-memory operations
+check_api() {
+    if curl -s "localhost:8001/kb/list" > /dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Show knowledge bases (unified function)
 show_knowledge_bases() {
-    echo -e "${GREEN}=== Available Knowledge Bases ===${NC}"
-    curl -s "localhost:9200/_cat/indices?h=index,creation.date&format=json" | python3 -c "
+    if [[ "$USE_MEMORY" == "true" ]]; then
+        echo -e "${BLUE}=== In-Memory Knowledge Bases ===${NC}"
+        
+        if check_api; then
+            echo -e "${GREEN}🚀 API available - querying in-memory knowledge bases${NC}"
+            
+            # Get KB list from API
+            curl -s "localhost:8001/kb/list" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    in_memory_kbs = data.get('in_memory', [])
+    print('Available in-memory knowledge bases:')
+    for kb in in_memory_kbs:
+        print(f'  📚 {kb}')
+    if not in_memory_kbs:
+        print('  No in-memory knowledge bases found')
+except Exception as e:
+    print(f'Error parsing API response: {e}')
+"
+        else
+            echo -e "${RED}❌ API not available on localhost:8001${NC}"
+            echo "In-memory KB inspection requires API access."
+            echo "Make sure the service is running and accessible on port 8001."
+        fi
+    else
+        echo -e "${GREEN}=== Available Knowledge Bases (OpenSearch) ===${NC}"
+        curl -s "localhost:9200/_cat/indices?h=index,creation.date&format=json" | python3 -c "
 import sys, json
 indices_info = json.load(sys.stdin)
 kb_timestamps = {}
@@ -83,6 +149,129 @@ if kb_timestamps:
 else:
     print('No knowledge bases found')
 "
+    fi
+}
+
+count_entries() {
+    local kb="$1"
+    local kb_name="${kb:-default}"
+    
+    if [[ "$USE_MEMORY" == "true" ]]; then
+        if ! check_api; then
+            echo -e "${RED}❌ API not available for in-memory KB inspection${NC}"
+            return 1
+        fi
+        
+        echo -e "${GREEN}=== Entry Count for KB: $kb_name (In-Memory) ===${NC}"
+        
+        curl -s "localhost:8001/kb/count" -H "Content-Type: application/json" -d "{
+            \"knowledge_base\": \"$kb_name\",
+            \"use_opensearch\": false
+        }" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    if 'error' in data:
+        print(f'❌ Error: {data[\"error\"]}')
+    else:
+        count = data.get('count', 0)
+        storage = data.get('storage', 'unknown')
+        print(f'📊 Total entries: {count:,} ({storage} storage)')
+except Exception as e:
+    print(f'Error processing response: {e}')
+"
+    else
+        # OpenSearch count (existing logic)
+        local pattern=$(get_index_pattern "$kb")
+        
+        if [ -n "$kb" ]; then
+            echo -e "${GREEN}=== Entry Count for Knowledge Base: $kb (OpenSearch) ===${NC}"
+        else
+            echo -e "${GREEN}=== Entry Count (All Knowledge Bases - OpenSearch) ===${NC}"
+        fi
+        
+        curl -s "localhost:9200/${pattern}/_count" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    count = data.get('count', 0)
+    if count == 0:
+        print('📊 No entries found')
+    else:
+        print(f'📊 Total entries: {count:,}')
+except Exception as e:
+    print(f'Error getting count: {e}')
+"
+    fi
+}
+
+show_sample() {
+    local kb="$1"
+    local kb_name="${kb:-default}"
+    
+    if [[ "$USE_MEMORY" == "true" ]]; then
+        if ! check_api; then
+            echo -e "${RED}❌ API not available for in-memory KB inspection${NC}"
+            return 1
+        fi
+        
+        echo -e "${GREEN}=== Sample Documents from KB: $kb_name (In-Memory) ===${NC}"
+        
+        curl -s "localhost:8001/kb/sample" -H "Content-Type: application/json" -d "{
+            \"knowledge_base\": \"$kb_name\",
+            \"use_opensearch\": false
+        }" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    if 'error' in data:
+        print(f'❌ Error: {data[\"error\"]}')
+    else:
+        docs = data.get('documents', [])
+        storage = data.get('storage', 'unknown')
+        if not docs:
+            print('No documents found')
+        else:
+            for i, doc in enumerate(docs, 1):
+                source = doc.get('source', 'unknown')
+                page = doc.get('page', 'N/A')
+                content = doc.get('content_snippet', '')
+                length = doc.get('content_length', 0)
+                print(f'📄 {i}. {source} (page {page}) - {length} chars')
+                print(f'   {content}')
+                print()
+except Exception as e:
+    print(f'Error processing response: {e}')
+"
+    else
+        # OpenSearch sample (existing logic)
+        local pattern=$(get_index_pattern "$kb")
+        
+        if [ -n "$kb" ]; then
+            echo -e "${GREEN}=== Sample Documents from Knowledge Base: $kb (OpenSearch) ===${NC}"
+        else
+            echo -e "${GREEN}=== Sample Documents (All Knowledge Bases - OpenSearch) ===${NC}"
+        fi
+        
+        curl -s "localhost:9200/${pattern}/_search?size=3&_source=text,metadata.source,metadata.page_number" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    if 'hits' not in data or not data['hits']['hits']:
+        print('No documents found')
+        sys.exit()
+        
+    for i, hit in enumerate(data['hits']['hits'][:3], 1):
+        source = hit['_source']['metadata']['source']
+        page = hit['_source']['metadata'].get('page_number', 'N/A')
+        text = hit['_source']['text'][:300] + '...' if len(hit['_source']['text']) > 300 else hit['_source']['text']
+        print(f'📄 {i}. {source} (page {page})')
+        print(f'   {text}')
+        print()
+except Exception as e:
+    print(f'Error processing documents: {e}')
+"
+    fi
 }
 
 # Get index pattern for a specific knowledge base
@@ -113,15 +302,55 @@ get_index_pattern() {
 
 show_docs() {
     local kb="$1"
-    local pattern=$(get_index_pattern "$kb")
+    local kb_name="${kb:-default}"
     
-    if [ -n "$kb" ]; then
-        echo -e "${GREEN}=== Document Sources in Knowledge Base: $kb ===${NC}"
+    if [[ "$USE_MEMORY" == "true" ]]; then
+        if ! check_api; then
+            echo -e "${RED}❌ API not available for in-memory KB inspection${NC}"
+            return 1
+        fi
+        
+        if [ -n "$kb" ]; then
+            echo -e "${GREEN}=== Document Sources in Knowledge Base: $kb (In-Memory) ===${NC}"
+        else
+            echo -e "${GREEN}=== Document Sources (All Knowledge Bases - In-Memory) ===${NC}"
+        fi
+        
+        curl -s "localhost:8001/kb/docs" -H "Content-Type: application/json" -d "{
+            \"knowledge_base\": \"$kb_name\",
+            \"use_opensearch\": false
+        }" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    if 'error' in data:
+        print(f'❌ Error: {data[\"error\"]}')
+    else:
+        sources = data.get('sources', {})
+        total_chunks = data.get('total_chunks', 0)
+        storage = data.get('storage', 'unknown')
+        
+        if not sources:
+            print('No documents found')
+        else:
+            print(f'Total documents: {total_chunks} chunks ({storage} storage)')
+            print('Sources:')
+            for source, count in sorted(sources.items()):
+                print(f'  📄 {source}: {count} chunks')
+except Exception as e:
+    print(f'Error processing response: {e}')
+"
     else
-        echo -e "${GREEN}=== Document Sources (All Knowledge Bases) ===${NC}"
-    fi
-    
-    curl -s "localhost:9200/${pattern}/_search?size=100&_source=metadata" | python3 -c "
+        # OpenSearch docs (existing logic)
+        local pattern=$(get_index_pattern "$kb")
+        
+        if [ -n "$kb" ]; then
+            echo -e "${GREEN}=== Document Sources in Knowledge Base: $kb (OpenSearch) ===${NC}"
+        else
+            echo -e "${GREEN}=== Document Sources (All Knowledge Bases - OpenSearch) ===${NC}"
+        fi
+        
+        curl -s "localhost:9200/${pattern}/_search?size=100&_source=metadata" | python3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
@@ -142,61 +371,10 @@ try:
 except Exception as e:
     print(f'Error processing documents: {e}')
 "
+    fi
 }
 
-count_entries() {
-    local kb="$1"
-    local pattern=$(get_index_pattern "$kb")
-    
-    if [ -n "$kb" ]; then
-        echo -e "${GREEN}=== Entry Count for Knowledge Base: $kb ===${NC}"
-    else
-        echo -e "${GREEN}=== Entry Count (All Knowledge Bases) ===${NC}"
-    fi
-    
-    curl -s "localhost:9200/${pattern}/_count" | python3 -c "
-import json, sys
-try:
-    data = json.load(sys.stdin)
-    count = data.get('count', 0)
-    if count == 0:
-        print('📊 No entries found')
-    else:
-        print(f'📊 Total entries: {count:,}')
-except Exception as e:
-    print(f'Error getting count: {e}')
-"
-}
 
-show_sample() {
-    local kb="$1"
-    local pattern=$(get_index_pattern "$kb")
-    
-    if [ -n "$kb" ]; then
-        echo -e "${GREEN}=== Sample Documents from Knowledge Base: $kb ===${NC}"
-    else
-        echo -e "${GREEN}=== Sample Documents (All Knowledge Bases) ===${NC}"
-    fi
-    
-    curl -s "localhost:9200/${pattern}/_search?size=3&_source=text,metadata.source,metadata.page_number" | python3 -c "
-import json, sys
-try:
-    data = json.load(sys.stdin)
-    if 'hits' not in data or not data['hits']['hits']:
-        print('No documents found')
-        sys.exit()
-        
-    for i, hit in enumerate(data['hits']['hits'][:3], 1):
-        source = hit['_source']['metadata']['source']
-        page = hit['_source']['metadata'].get('page_number', 'N/A')
-        text = hit['_source']['text'][:300] + '...' if len(hit['_source']['text']) > 300 else hit['_source']['text']
-        print(f'📄 {i}. {source} (page {page})')
-        print(f'   {text}')
-        print()
-except Exception as e:
-    print(f'Error processing documents: {e}')
-"
-}
 
 search_docs() {
     local term="$1"
@@ -249,42 +427,59 @@ except Exception as e:
 cleanup() {
     echo -e "${YELLOW}Stopping port forwarding...${NC}"
     pkill -f "kubectl port-forward.*opensearch.*9200:9200" || true
+    pkill -f "kubectl port-forward.*ouragboros.*8001:8001" || true
+    echo -e "${GREEN}Port forwarding stopped.${NC}"
 }
 
 show_help() {
     echo -e "${BLUE}OpenSearch Browser for OuRAGboros${NC}"
     echo ""
-    echo "Usage: $0 [command] [knowledge_base]"
+    echo "Usage: $0 [command] [knowledge_base] [-m]"
     echo ""
     echo "Commands:"
     echo "  indices           - Show OpenSearch indices"
-    echo "  kbs               - List available knowledge bases"
+    echo "  kbs               - List knowledge bases (default: OpenSearch)"
     echo "  docs [kb]         - Show document sources and counts"
     echo "  count [kb]        - Show total entry count for knowledge base"
     echo "  sample [kb]       - Show sample documents"
-    echo "  search <term> [kb] - Search documents for a term"
+    echo "  search <term> [kb] - Search documents for a term (OpenSearch only)"
     echo "  cleanup           - Stop port forwarding"
     echo ""
+    echo "Flags:"
+    echo "  -m, --memory      - Use in-memory storage instead of OpenSearch"
+    echo ""
     echo "Knowledge Base Support:"
-    echo "  - Omit [kb] to search across all knowledge bases"
+    echo "  - Omit [kb] to operate on all knowledge bases"
     echo "  - Use 'default' for the default knowledge base"
     echo "  - Use custom names like 'physics_papers', 'legal_docs', etc."
     echo ""
+    echo "Storage Types:"
+    echo "  📊 OpenSearch (default) - Persistent storage, production use"
+    echo "  💾 In-Memory (-m flag)  - Session storage, requires API on port 8001"
+    echo ""
     echo "Examples:"
-    echo "  $0 kbs                           # List knowledge bases"
-    echo "  $0 docs                          # Show all documents"
-    echo "  $0 docs default                  # Show documents in default KB"
-    echo "  $0 docs physics_papers           # Show documents in physics_papers KB"
-    echo "  $0 count                         # Count entries across all KBs"
-    echo "  $0 count default                 # Count entries in default KB"
-    echo "  $0 search 'neural network'       # Search all knowledge bases"
-    echo "  $0 search 'quantum' physics_papers # Search only physics_papers KB"
-    echo "  $0 sample default                # Sample from default KB"
+    echo "  $0 kbs                    # List OpenSearch knowledge bases"
+    echo "  $0 kbs -m                 # List in-memory knowledge bases"
+    echo "  $0 count default          # Count entries in OpenSearch default KB"
+    echo "  $0 count default -m       # Count entries in in-memory default KB"
+    echo "  $0 sample physics -m      # Sample from in-memory physics KB"
+    echo "  $0 search 'AI' default    # Search OpenSearch default KB"
 }
 
 # Main
-start_port_forward
-check_opensearch
+# Check what services are needed
+if [[ "$USE_MEMORY" == "true" ]]; then
+    # In-memory operations only need API (port 8001)
+    if [[ "${1:-help}" != "help" ]]; then
+        start_api_port_forward
+    fi
+else
+    # OpenSearch operations need port forwarding and OpenSearch
+    if [[ "${1:-help}" != "help" ]]; then
+        start_opensearch_port_forward
+        check_opensearch
+    fi
+fi
 
 case "${1:-help}" in
     "indices")
