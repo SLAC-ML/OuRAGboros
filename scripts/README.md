@@ -1,6 +1,50 @@
 # Scripts Directory
 
-This directory contains utility scripts for managing and debugging the OuRAGboros deployment.
+This directory contains utility scripts for local development, deployment, and debugging OuRAGboros.
+
+## 🚀 Local Development
+
+### `local-dev.sh`
+
+**New!** Streamlined script for local development with Docker Compose. Perfect for rapid development and testing.
+
+**Quick Start:**
+```bash
+# Rebuild ouragboros and start all services  
+./scripts/local-dev.sh
+
+# Just rebuild the app container
+./scripts/local-dev.sh build
+
+# Rebuild without cache (if having issues)
+./scripts/local-dev.sh build --no-cache
+
+# Quick restart after code changes
+./scripts/local-dev.sh restart
+
+# View logs for debugging
+./scripts/local-dev.sh logs
+
+# Stop services  
+./scripts/local-dev.sh down
+
+# Full cleanup (stop + remove containers/images)
+./scripts/local-dev.sh clean
+```
+
+**Features:**
+- ✅ **Automatic prerequisites check** (Docker, compose files, .env)  
+- ✅ **Smart build options** (app-only vs full rebuild, cache control)
+- ✅ **Service management** (start, stop, restart, status)
+- ✅ **Log monitoring** with real-time follow
+- ✅ **Cleanup utilities** for housekeeping
+- ✅ **Clear service URLs** displayed after startup
+
+**Service URLs:**
+- Streamlit UI: http://localhost:8501
+- REST API: http://localhost:8001  
+- OpenSearch: http://localhost:9200
+- Ollama: http://localhost:11434
 
 ## 🐳 Docker Image Management
 
@@ -102,27 +146,26 @@ Use this tool to:
 5. **Adjust score thresholds**: Use search scores to set appropriate thresholds in Streamlit UI
 6. **Validate KB creation/deletion**: Confirm knowledge base operations worked correctly
 
-## 🚀 Kubernetes Deployment
+## 🧪 Testing Utilities
 
-### `deploy-to-s3df.sh`
+### `test-local.sh`, `test-embedding-cache.sh`, `test-concurrent.sh`
 
-**Legacy:** Automated deployment script for S3DF vCluster (from previous development session).
-
-**Note:** This script references old file paths and may need updates for the current organized directory structure.
-
-### `monitor-resources.sh` & `production-monitor.sh`
-
-**Legacy:** Resource monitoring scripts for Kubernetes deployments.
-
-### `test-api-service.sh`
-
-**Legacy:** API testing script for validating deployed services.
+Various testing scripts for validating functionality:
+- **test-local.sh**: Local development testing
+- **test-embedding-cache.sh**: Embedding cache performance testing  
+- **test-concurrent.sh**: Concurrent request testing
 
 ---
 
 ## 📝 Quick Reference
 
-**Common Workflow:**
+**Local Development Workflow:**
+1. Make code changes
+2. Rebuild and restart: `./scripts/local-dev.sh restart`
+3. Test at: http://localhost:8501
+4. Debug with logs: `./scripts/local-dev.sh logs`
+
+**Production Deployment Workflow:**
 1. Build new image: `./scripts/build-and-push.sh [build-number]`
 2. Update `k8s/base/k8s.yaml` with new image tag
 3. Deploy: `kubectl apply -n ouragboros -k k8s/base`

@@ -106,48 +106,31 @@ with st.sidebar:
         # Get knowledge base list using utility with fallback handling
         current_available_kbs, storage_info = kb_utils.get_current_knowledge_bases(available_knowledge_bases)
 
-        # Enhanced options list: current KBs + "Create new..."
-        kb_options = current_available_kbs + ["+ Create new..."]
-
-        # Knowledge Base Selection
-        # Disable selectbox when in create mode to prevent re-rendering issues
+        # Knowledge Base Selection - Use natural Streamlit state binding (same as main page)
         is_in_create_mode = st.session_state.get("_kb_create_mode_embed", False)
 
-        # Use a counter to force selectbox refresh after cancel
-        if "_kb_selector_counter_embed" not in st.session_state:
-            st.session_state["_kb_selector_counter_embed"] = 0
-
-        # Determine what to show in selectbox
-        current_kb = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
-        if is_in_create_mode:
-            # In create mode, show the original KB but keep disabled
-            display_index = (
-                kb_options.index(current_kb)
-                if current_kb in current_available_kbs
-                else 0
+        if not is_in_create_mode:
+            # Normal mode: Simple selectbox with natural binding
+            current_kb = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
+            
+            # CRITICAL: Clean up session state BEFORE selectbox renders to prevent serialization errors
+            if current_kb not in current_available_kbs:
+                current_kb = current_available_kbs[0]
+                # Always update session state immediately to prevent selectbox serialization error
+                st.session_state[ss.StateKey.KNOWLEDGE_BASE] = current_kb
+            
+            selected_kb = st.selectbox(
+                "Target knowledge base for uploads:",
+                current_available_kbs,
+                index=current_available_kbs.index(current_kb),  # current_kb is now guaranteed to be in list
+                key=ss.StateKey.KNOWLEDGE_BASE,  # Direct binding to session state!
+                help="Choose where to store uploaded documents",
             )
-        else:
-            # Normal mode - show current KB
-            display_index = (
-                kb_options.index(current_kb)
-                if current_kb in current_available_kbs
-                else 0
-            )
-
-        selected_option = st.selectbox(
-            "Target knowledge base for uploads:",
-            kb_options,
-            index=display_index,
-            key=f"kb_selector_embed_{st.session_state['_kb_selector_counter_embed']}",
-            help="Choose where to store uploaded documents",
-            disabled=is_in_create_mode,
-        )
-
-        # Handle "Create new" selection
-        if selected_option == "+ Create new..." and not is_in_create_mode:
-            # Set create mode state
-            st.session_state["_kb_create_mode_embed"] = True
-            st.rerun()
+            
+            # Add create button below the selectbox
+            if st.button("+ Create New Knowledge Base", use_container_width=True, key="create_kb_btn_embed_main"):
+                st.session_state["_kb_create_mode_embed"] = True
+                st.rerun()
 
         # Show create mode UI if in create mode
         if is_in_create_mode:
@@ -205,14 +188,10 @@ with st.sidebar:
                                     ].append(new_kb_name)
 
                                 # Auto-select the new KB and refresh
-                                st.session_state[ss.StateKey.KNOWLEDGE_BASE] = (
-                                    new_kb_name
-                                )
+                                st.session_state[ss.StateKey.KNOWLEDGE_BASE] = new_kb_name
                                 st.cache_resource.clear()
                                 # Exit create mode and clean up
                                 st.session_state["_kb_create_mode_embed"] = False
-                                # Increment counter to refresh selectbox
-                                st.session_state["_kb_selector_counter_embed"] += 1
                                 # Set success message flag to show outside section
                                 st.session_state["_create_success_message"] = (
                                     f"Created '{new_kb_name}' successfully!"
@@ -237,37 +216,24 @@ with st.sidebar:
                     # Clear the text input
                     if "new_kb_name_embed" in st.session_state:
                         del st.session_state["new_kb_name_embed"]
-                    # Increment counter to force selectbox refresh
-                    st.session_state["_kb_selector_counter_embed"] += 1
                     st.rerun()
-
-        else:
-            # Update the actual knowledge base selection (but ignore "+ Create new...")
-            if (
-                selected_option != st.session_state.get(ss.StateKey.KNOWLEDGE_BASE)
-                and selected_option != "+ Create new..."
-                and selected_option in current_available_kbs
-            ):
-                st.session_state[ss.StateKey.KNOWLEDGE_BASE] = selected_option
-                # Note: Let Streamlit handle re-render automatically (no explicit st.rerun)
-
-            # Show current KB info and delete option (if not default)
-            if selected_option != "default":
+        
+        # Show current KB info and delete option (if not default) - always visible
+        if not is_in_create_mode:
+            current_kb = st.session_state.get(ss.StateKey.KNOWLEDGE_BASE, "default")
+            if current_kb != "default":
                 col1, col2 = st.columns([2, 1])
                 with col1:
-                    st.caption(f"Upload target: **{selected_option}**")
+                    st.caption(f"Upload target: **{current_kb}**")
                 with col2:
                     if st.button(
                         "Delete",
-                        key=f"delete_embed_{selected_option}",
-                        help=f"Delete '{selected_option}'",
+                        key=f"delete_embed_{current_kb}",
+                        help=f"Delete '{current_kb}'",
                         use_container_width=True,
                     ):
-                        st.session_state[f"_confirm_delete_embed_{selected_option}"] = (
-                            True
-                        )
+                        st.session_state[f"_confirm_delete_embed_{current_kb}"] = True
                         st.rerun()
-
             else:
                 st.caption("Upload target: **default** (your original knowledge base)")
 

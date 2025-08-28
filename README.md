@@ -40,6 +40,43 @@ NVIDIA_GPUS=1
 
 in your `.env` file.
 
+#### Local Development & Testing
+
+When making code changes and testing locally with Docker Compose, use the local compose file:
+
+```sh
+# Rebuild just the application container with your changes
+docker compose -f docker-compose.local.yml build ouragboros
+
+# Then start all services
+docker compose -f docker-compose.local.yml up
+```
+
+For a complete rebuild (if you want to ensure all dependencies are fresh):
+
+```sh
+# Rebuild all services
+docker compose -f docker-compose.local.yml build
+
+# Start everything
+docker compose -f docker-compose.local.yml up
+```
+
+If Docker is using cached layers and not picking up your changes, force a rebuild:
+
+```sh
+# Force rebuild without cache
+docker compose -f docker-compose.local.yml build --no-cache ouragboros
+docker compose -f docker-compose.local.yml up
+```
+
+The local compose file (`docker-compose.local.yml`) differs from the main one by:
+- Building `ouragboros:local` image instead of using the remote registry
+- Using `.env` file for local configuration
+- Exposing all service ports to the host for development
+
+The Streamlit UI will be available at http://localhost:8501 and the REST API at http://localhost:8001.
+
 ### Usage
 
 Whether you started the application via `uv` or `docker-compose`, you can head to 
