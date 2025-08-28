@@ -5,6 +5,7 @@ data/
 uv/
 ollama/
 .env
+.env.*
 CLAUDE.md
 .vscode
 .DS_Store
