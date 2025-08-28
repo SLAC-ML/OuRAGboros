@@ -6,6 +6,9 @@ from typing import List, Dict
 
 from lib.rag_service import answer_query
 from langchain.schema import Document
+import lib.streamlit.session_state as ss
+import lib.langchain.embeddings as langchain_embeddings
+import lib.langchain.opensearch as langchain_opensearch
 
 
 class FileUpload(BaseModel):
@@ -25,6 +28,12 @@ class QueryRequest(BaseModel):
     files: List[FileUpload] = []
     history: List[Dict[str, str]] = []
     knowledge_base: str = "default"
+
+
+class KBInspectRequest(BaseModel):
+    knowledge_base: str = "default"
+    embedding_model: str = "huggingface:sentence-transformers/all-mpnet-base-v2"
+    use_opensearch: bool = False
 
 
 app = FastAPI()
@@ -59,3 +68,142 @@ def ask(req: QueryRequest):
         for d, score in docs
     ]
     return {"answer": answer, "documents": doc_info}
+
+
+@app.post("/kb/count")
+def count_kb_documents(req: KBInspectRequest):
+    """Count documents in a knowledge base (works with both OpenSearch and in-memory)"""
+    try:
+        if req.use_opensearch:
+            # Use OpenSearch for counting
+            vs = langchain_opensearch.opensearch_doc_vector_store(
+                req.embedding_model, req.knowledge_base
+            )
+            # Get total count by searching with match_all query
+            results = vs.similarity_search("", k=1)  # Just to check if any docs exist
+            # For more accurate count, we'd need to use the raw OpenSearch client
+            count = len(vs.similarity_search("", k=10000))  # Rough estimate
+            return {"knowledge_base": req.knowledge_base, "count": count, "storage": "opensearch"}
+        else:
+            # Use in-memory vector store
+            vs = langchain_embeddings.get_in_memory_vector_store(
+                req.embedding_model, req.knowledge_base
+            )
+            if vs is None:
+                return {"knowledge_base": req.knowledge_base, "count": 0, "storage": "in-memory", "error": "Knowledge base not found"}
+            
+            # For in-memory stores, we can get documents directly
+            try:
+                # Try to get a large number of documents to estimate count
+                docs = vs.similarity_search("", k=10000)
+                count = len(docs)
+            except:
+                # Fallback: just indicate if KB exists
+                count = "unknown"
+            
+            return {"knowledge_base": req.knowledge_base, "count": count, "storage": "in-memory"}
+    except Exception as e:
+        return {"knowledge_base": req.knowledge_base, "count": 0, "error": str(e)}
+
+
+@app.post("/kb/sample")
+def sample_kb_documents(req: KBInspectRequest):
+    """Get sample documents from a knowledge base"""
+    try:
+        if req.use_opensearch:
+            vs = langchain_opensearch.opensearch_doc_vector_store(
+                req.embedding_model, req.knowledge_base
+            )
+        else:
+            vs = langchain_embeddings.get_in_memory_vector_store(
+                req.embedding_model, req.knowledge_base
+            )
+        
+        if vs is None:
+            return {"knowledge_base": req.knowledge_base, "documents": [], "error": "Knowledge base not found"}
+        
+        # Get sample documents
+        docs = vs.similarity_search("", k=3)  # Get up to 3 sample docs
+        
+        sample_docs = []
+        for doc in docs:
+            sample_docs.append({
+                "source": doc.metadata.get("source", "unknown"),
+                "page": doc.metadata.get("page_number", "N/A"),
+                "content_snippet": doc.page_content[:300] + "..." if len(doc.page_content) > 300 else doc.page_content,
+                "content_length": len(doc.page_content)
+            })
+        
+        storage_type = "opensearch" if req.use_opensearch else "in-memory"
+        return {"knowledge_base": req.knowledge_base, "documents": sample_docs, "storage": storage_type}
+    
+    except Exception as e:
+        return {"knowledge_base": req.knowledge_base, "documents": [], "error": str(e)}
+
+
+@app.post("/kb/docs")
+def list_kb_documents(req: KBInspectRequest):
+    """List document sources in a knowledge base"""
+    try:
+        if req.use_opensearch:
+            vs = langchain_opensearch.opensearch_doc_vector_store(
+                req.embedding_model, req.knowledge_base
+            )
+        else:
+            vs = langchain_embeddings.get_in_memory_vector_store(
+                req.embedding_model, req.knowledge_base
+            )
+        
+        if vs is None:
+            return {"knowledge_base": req.knowledge_base, "documents": [], "error": "Knowledge base not found"}
+        
+        # Get all documents (up to a reasonable limit)
+        docs = vs.similarity_search("", k=1000)
+        
+        # Group by source and count chunks
+        sources = {}
+        doc_list = []
+        for doc in docs:
+            source = doc.metadata.get("source", "unknown")
+            sources[source] = sources.get(source, 0) + 1
+            doc_list.append({
+                "source": source,
+                "page": doc.metadata.get("page_number", "N/A"),
+                "content_length": len(doc.page_content)
+            })
+        
+        storage_type = "opensearch" if req.use_opensearch else "in-memory"
+        return {
+            "knowledge_base": req.knowledge_base, 
+            "documents": doc_list,
+            "sources": sources,
+            "total_chunks": len(docs),
+            "storage": storage_type
+        }
+    
+    except Exception as e:
+        return {"knowledge_base": req.knowledge_base, "documents": [], "error": str(e)}
+
+
+@app.get("/kb/list")
+def list_knowledge_bases():
+    """List available knowledge bases from both storage types"""
+    result = {"opensearch": [], "in_memory": []}
+    
+    try:
+        # Get OpenSearch knowledge bases
+        opensearch_kbs = langchain_opensearch.get_available_knowledge_bases()
+        result["opensearch"] = opensearch_kbs
+    except Exception as e:
+        result["opensearch_error"] = str(e)
+    
+    try:
+        # Get in-memory knowledge bases
+        in_memory_kbs = langchain_embeddings.get_in_memory_knowledge_bases()
+        if not in_memory_kbs:
+            in_memory_kbs = ["default"]  # Default is always available
+        result["in_memory"] = in_memory_kbs
+    except Exception as e:
+        result["in_memory_error"] = str(e)
+    
+    return result

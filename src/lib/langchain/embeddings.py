@@ -43,6 +43,22 @@ def get_in_memory_vector_store(embedding_model: str, knowledge_base: str = "defa
     return _in_memory_vector_stores[cache_key]
 
 
+def get_in_memory_knowledge_bases() -> list[str]:
+    """
+    Get list of available in-memory knowledge bases.
+    
+    :return: List of knowledge base names
+    """
+    with _in_memory_vector_stores_lock:
+        # Extract knowledge base names from cache keys (format: "embedding_model#knowledge_base")
+        kb_names = set()
+        for cache_key in _in_memory_vector_stores.keys():
+            if '#' in cache_key:
+                kb_name = cache_key.split('#', 1)[1]
+                kb_names.add(kb_name)
+        return sorted(list(kb_names))
+
+
 def clear_embedding_cache() -> None:
     """
     Clear all embedding caches. Useful for testing or memory management.
