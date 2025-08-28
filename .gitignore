@@ -7,3 +7,5 @@ ollama/
 .env
 CLAUDE.md
 .vscode
+.DS_Store
+benchmark
