@@ -12,7 +12,7 @@ data:
   STANFORD_BASE_URL: 'https://aiapi-prod.stanford.edu/v1'
   OPENSEARCH_BASE_URL: 'http://opensearch:9200'
   OPENSEARCH_INDEX_PREFIX: 'ouragboros'
-  OPENSEARCH_JAVA_OPTS: '-Xms512m -Xmx512m'
+  OPENSEARCH_JAVA_OPTS: '-Xms4g -Xmx8g'
   PDF_PARSER_MODEL: 'facebook/nougat-small'
   PREFER_OPENSEARCH: 'true'
   SENTENCE_TRANSFORMERS_HOME: 'models'
@@ -270,6 +270,13 @@ spec:
               value: single-node
           image: opensearchproject/opensearch:2.19.0
           name: opensearch
+          resources:
+            requests:
+              cpu: "4"
+              memory: "10Gi"
+            limits:
+              cpu: "8"
+              memory: "16Gi"
           ports:
             - containerPort: 9200
               protocol: TCP
@@ -390,8 +397,15 @@ spec:
                 configMapKeyRef:
                   key: SENTENCE_TRANSFORMERS_HOME
                   name: kubernetes-env
-          image: slacml/ouragboros:25.08.27
+          image: slacml/ouragboros:25.08.27-3
           name: ouragboros
+          resources:
+            requests:
+              cpu: "16"
+              memory: "32Gi"
+            limits:
+              cpu: "32"
+              memory: "64Gi"
           ports:
             - containerPort: 8501
               protocol: TCP

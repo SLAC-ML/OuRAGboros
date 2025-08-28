@@ -2,8 +2,8 @@
 
 
 
-# Start your REST API 
-uv run uvicorn app_api:app --host 0.0.0.0 --port 8001 --reload &
+# Start your REST API with multiple workers
+uv run uvicorn app_api:app --host 0.0.0.0 --port 8001 --workers 8 &
 
 # Start the Streamlit app
 uv run streamlit run src/main.py --server.port=8501 --server.address=0.0.0.0 &

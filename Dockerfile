@@ -39,8 +39,11 @@ ENTRYPOINT []
 # Uses `--host 0.0.0.0` to allow access from outside the container
 
 COPY run_apps.sh /app/run_apps.sh
-RUN chmod +x /app/run_apps.sh
+COPY run_apps_production.sh /app/run_apps_production.sh
+COPY run_apps_auto.sh /app/run_apps_auto.sh
+RUN chmod +x /app/run_apps.sh /app/run_apps_production.sh /app/run_apps_auto.sh
 
 #CMD ["uv", "run", "streamlit", "run", "src/main.py", "--server.port=8501", "--server.address=0.0.0.0"]
-CMD ["/app/run_apps.sh"]
+# Use auto-detection script that works both locally and in production
+CMD ["/app/run_apps_auto.sh"]
 #CMD ["uv", "run", "uvicorn", "app_api:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
