@@ -78,7 +78,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 2Gi
+      storage: 50Gi
 ---
 # Source: docker-compose/templates/ollama-service.yaml
 apiVersion: v1
@@ -367,15 +367,21 @@ spec:
               value: "/qdrant/storage"
             - name: QDRANT__LOG_LEVEL
               value: "INFO"
+            - name: QDRANT__SERVICE__MAX_REQUEST_SIZE_MB
+              value: "512"
+            - name: QDRANT__SERVICE__HTTP_PORT
+              value: "6333"
+            - name: QDRANT__SERVICE__GRPC_PORT
+              value: "6334"
           image: qdrant/qdrant:v1.12.1
           name: qdrant
           resources:
             requests:
-              cpu: "2"
-              memory: "4Gi"
+              cpu: "8"
+              memory: "32Gi"
             limits:
-              cpu: "4"
-              memory: "8Gi"
+              cpu: "16"
+              memory: "64Gi"
           ports:
             - containerPort: 6333
               protocol: TCP
