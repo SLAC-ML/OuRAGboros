@@ -25,9 +25,18 @@ def perform_document_retrieval(
     score_threshold: float,
     use_opensearch_vectorstore: bool,
     knowledge_base: str = "default",
+    use_qdrant: bool = False,
 ) -> List[Tuple[Document, float]]:
-    vs = ss.get_vector_store(use_opensearch_vectorstore, embedding_model, knowledge_base)
-    if use_opensearch_vectorstore:
+    vs = ss.get_vector_store(use_opensearch_vectorstore, embedding_model, knowledge_base, use_qdrant)
+    
+    if use_qdrant:
+        # Qdrant handles score threshold internally and uses cosine similarity
+        return vs.similarity_search_with_score(
+            query=query,
+            k=k,
+            score_threshold=score_threshold,
+        )
+    elif use_opensearch_vectorstore:
         langchain_opensearch.ensure_opensearch_index(embedding_model, knowledge_base)
         return vs.similarity_search_with_score(
             query=query,
@@ -71,6 +80,7 @@ def answer_query(
     history: List[Dict[str, str]] = None,
     use_rag: bool = True,
     knowledge_base: str = "default",
+    use_qdrant: bool = False,
 ) -> Tuple[str, List[Tuple[Document, float]]]:
     """
     Returns (full_answer_text, retrieved_docs), streaming is only in UI.
@@ -78,7 +88,7 @@ def answer_query(
     # 1. retrieve
     if use_rag:
         docs = perform_document_retrieval(
-            query, embedding_model, k, score_threshold, use_opensearch, knowledge_base
+            query, embedding_model, k, score_threshold, use_opensearch, knowledge_base, use_qdrant
         )
     else:
         # if not using RAG, return an empty docs list

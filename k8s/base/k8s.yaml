@@ -14,7 +14,9 @@ data:
   OPENSEARCH_INDEX_PREFIX: 'ouragboros'
   OPENSEARCH_JAVA_OPTS: '-Xms4g -Xmx8g'
   PDF_PARSER_MODEL: 'facebook/nougat-small'
-  PREFER_OPENSEARCH: 'true'
+  PREFER_OPENSEARCH: 'false'
+  PREFER_QDRANT: 'true'
+  QDRANT_BASE_URL: 'http://qdrant:6333'
   SENTENCE_TRANSFORMERS_HOME: 'models'
 kind: ConfigMap
 metadata:
@@ -64,6 +66,20 @@ spec:
     requests:
       storage: 3Gi
 ---
+# Source: docker-compose/templates/qdrant-data-persistentvolumeclaim.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    io.kompose.service: qdrant-data
+  name: qdrant-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
 # Source: docker-compose/templates/ollama-service.yaml
 apiVersion: v1
 kind: Service
@@ -106,6 +122,30 @@ spec:
     io.kompose.service: opensearch
   type: ClusterIP
 ---
+# Source: docker-compose/templates/qdrant-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c
+    kompose.service.type: ClusterIP
+    kompose.version: 1.35.0 (HEAD)
+    kompose.volume.size: 2Gi
+  labels:
+    io.kompose.service: qdrant
+  name: qdrant
+spec:
+  ports:
+    - name: "6333"
+      port: 6333
+      targetPort: 6333
+    - name: "6334"
+      port: 6334
+      targetPort: 6334
+  selector:
+    io.kompose.service: qdrant
+  type: ClusterIP
+---
 # Source: docker-compose/templates/ouragboros-service.yaml
 apiVersion: v1
 kind: Service
@@ -124,6 +164,9 @@ spec:
     - name: "8501"
       port: 8501
       targetPort: 8501
+    - name: "8001"
+      port: 8001
+      targetPort: 8001
   selector:
     io.kompose.service: ouragboros
 ---
@@ -289,6 +332,64 @@ spec:
           persistentVolumeClaim:
             claimName: opensearch-data
 ---
+# Source: docker-compose/templates/qdrant-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c
+    kompose.service.type: ClusterIP
+    kompose.version: 1.35.0 (HEAD)
+    kompose.volume.size: 2Gi
+  labels:
+    io.kompose.service: qdrant
+  name: qdrant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: qdrant
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -c
+        kompose.service.type: ClusterIP
+        kompose.version: 1.35.0 (HEAD)
+        kompose.volume.size: 2Gi
+      labels:
+        io.kompose.service: qdrant
+    spec:
+      containers:
+        - env:
+            - name: QDRANT__STORAGE__STORAGE_PATH
+              value: "/qdrant/storage"
+            - name: QDRANT__LOG_LEVEL
+              value: "INFO"
+          image: qdrant/qdrant:v1.12.1
+          name: qdrant
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+          ports:
+            - containerPort: 6333
+              protocol: TCP
+            - containerPort: 6334
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /qdrant/storage
+              name: qdrant-data
+      restartPolicy: Always
+      volumes:
+        - name: qdrant-data
+          persistentVolumeClaim:
+            claimName: qdrant-data
+---
 # Source: docker-compose/templates/ouragboros-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -397,17 +498,29 @@ spec:
                 configMapKeyRef:
                   key: SENTENCE_TRANSFORMERS_HOME
                   name: kubernetes-env
-          image: slacml/ouragboros:25.08.27-3
+            - name: PREFER_QDRANT
+              valueFrom:
+                configMapKeyRef:
+                  key: PREFER_QDRANT
+                  name: kubernetes-env
+            - name: QDRANT_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: QDRANT_BASE_URL
+                  name: kubernetes-env
+          image: slacml/ouragboros:25.08.28
           name: ouragboros
           resources:
             requests:
-              cpu: "16"
+              cpu: "8"
               memory: "32Gi"
             limits:
-              cpu: "32"
+              cpu: "16"
               memory: "64Gi"
           ports:
             - containerPort: 8501
+              protocol: TCP
+            - containerPort: 8001
               protocol: TCP
           volumeMounts:
             - mountPath: /app/models

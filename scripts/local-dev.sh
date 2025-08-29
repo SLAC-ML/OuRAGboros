@@ -44,6 +44,7 @@ show_help() {
     echo "  • Streamlit UI: http://localhost:8501"
     echo "  • REST API:     http://localhost:8001"
     echo "  • OpenSearch:   http://localhost:9200"
+    echo "  • Qdrant:       http://localhost:6333"
     echo "  • Ollama:       http://localhost:11434"
 }
 
@@ -116,6 +117,7 @@ show_service_status() {
     echo "  • Streamlit UI: http://localhost:8501"
     echo "  • REST API:     http://localhost:8001"
     echo "  • OpenSearch:   http://localhost:9200"
+    echo "  • Qdrant:       http://localhost:6333"
     echo "  • Ollama:       http://localhost:11434"
     echo ""
 }

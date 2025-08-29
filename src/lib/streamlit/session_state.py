@@ -9,6 +9,7 @@ from langchain_core.vectorstores import VectorStore
 import lib.langchain.embeddings as langchain_embeddings
 import lib.langchain.llm as langchain_llm
 import lib.langchain.opensearch as langchain_opensearch
+import lib.langchain.qdrant as langchain_qdrant
 
 import lib.config as config
 
@@ -45,22 +46,20 @@ class StateKey(str):
     SEARCH_QUERY = "search_query"
     SYSTEM_MESSAGE = "system_message"
     USE_OPENSEARCH = "use_opensearch"
+    USE_QDRANT = "use_qdrant"
     USER_CONTEXT = "user_context"
 
 
-def init() -> tuple[list[str], list[str], list[str]]:
-    """
-    Initialize session state for the application. For more information about how Streamlit
-    uses session state, see:
-
-    https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state#serializable-session-state
-
-    :return: Tuple of (available_llms, available_embeddings, available_knowledge_bases)
-    """
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def _get_cached_models() -> tuple[list[str], list[str]]:
+    """Get available models with caching to avoid expensive re-computation."""
     available_embeddings = langchain_embeddings.get_available_embeddings()
     available_llms = langchain_llm.get_available_llms()
+    return available_llms, available_embeddings
 
-    # Get available knowledge bases with fallback support
+@st.cache_data(ttl=60)  # Cache KB list for 1 minute (more dynamic)
+def _get_cached_knowledge_bases() -> list[str]:
+    """Get available knowledge bases with caching."""
     available_knowledge_bases = ["default"]  # Always start with default
 
     # Add any stored in-memory knowledge bases
@@ -71,15 +70,35 @@ def init() -> tuple[list[str], list[str], list[str]]:
             if kb not in available_knowledge_bases
         )
 
-    # Try to get OpenSearch knowledge bases if available
+    # Try to get knowledge bases from preferred vector store
     try:
-        opensearch_kbs = langchain_opensearch.get_available_knowledge_bases()
-        # OpenSearch function already returns them in correct order (default first, then by creation time)
-        # Replace our list with the properly ordered one, but preserve any in-memory KBs not in OpenSearch
-        in_memory_only = [kb for kb in available_knowledge_bases if kb not in opensearch_kbs]
-        available_knowledge_bases = opensearch_kbs + in_memory_only
-    except:
-        pass  # OpenSearch not available, use in-memory only
+        if config.prefer_qdrant:
+            # Get Qdrant knowledge bases if Qdrant is preferred
+            qdrant_kbs = langchain_qdrant.get_available_knowledge_bases()
+            in_memory_only = [kb for kb in available_knowledge_bases if kb not in qdrant_kbs]
+            available_knowledge_bases = qdrant_kbs + in_memory_only
+        elif config.prefer_opensearch:
+            # Get OpenSearch knowledge bases if OpenSearch is preferred
+            opensearch_kbs = langchain_opensearch.get_available_knowledge_bases()
+            in_memory_only = [kb for kb in available_knowledge_bases if kb not in opensearch_kbs]
+            available_knowledge_bases = opensearch_kbs + in_memory_only
+    except Exception as e:
+        print(f"Warning: Could not connect to vector store: {e}")
+        pass  # Vector store not available, use in-memory only
+
+    return available_knowledge_bases
+
+def init() -> tuple[list[str], list[str], list[str]]:
+    """
+    Initialize session state for the application. For more information about how Streamlit
+    uses session state, see:
+
+    https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state#serializable-session-state
+
+    :return: Tuple of (available_llms, available_embeddings, available_knowledge_bases)
+    """
+    available_llms, available_embeddings = _get_cached_models()
+    available_knowledge_bases = _get_cached_knowledge_bases()
 
     default_session_state = [
         (StateKey.RAG_DOCS, []),
@@ -91,10 +110,11 @@ def init() -> tuple[list[str], list[str], list[str]]:
         (StateKey.LLM_PROMPT, config.default_prompt),
         (StateKey.LLM_RESPONSE, ""),
         (StateKey.MAX_DOCUMENT_COUNT, 5),
-        (StateKey.QUERY_RESULT_SCORE_INF, 0.7),
+        (StateKey.QUERY_RESULT_SCORE_INF, 0.5),
         (StateKey.SEARCH_QUERY, ""),
         (StateKey.USER_CONTEXT, []),
         (StateKey.USE_OPENSEARCH, config.prefer_opensearch),
+        (StateKey.USE_QDRANT, config.prefer_qdrant),
     ]
     for state_var, state_val in default_session_state:
         if state_var not in st.session_state:
@@ -136,22 +156,25 @@ def dump_session_state():
 
 @st.cache_resource
 def get_vector_store(
-    use_opensearch_vectorstore: bool, model: str, knowledge_base: str = "default"
+    use_opensearch_vectorstore: bool, model: str, knowledge_base: str = "default", use_qdrant: bool = False
 ) -> VectorStore:
     """
-    Fetches a particular vector store implementation for a specific model and knowledge base. 
-    We annotate this with st.cache_resource so that the in-memory vector store is retained 
+    Fetches a particular vector store implementation for a specific model and knowledge base.
+    We annotate this with st.cache_resource so that the in-memory vector store is retained
     for the life of the application.
 
     IMPORTANT: The cache key includes all parameters to ensure different knowledge bases
     get different vector store instances.
 
-    :param use_opensearch_vectorstore:
-    :param model:
-    :param knowledge_base:
-    :return:
+    :param use_opensearch_vectorstore: Whether to use OpenSearch
+    :param model: Embedding model identifier
+    :param knowledge_base: Knowledge base name
+    :param use_qdrant: Whether to use Qdrant (takes precedence over OpenSearch)
+    :return: Vector store instance
     """
-    if use_opensearch_vectorstore:
+    if use_qdrant:
+        return langchain_qdrant.qdrant_vector_store(model, knowledge_base)
+    elif use_opensearch_vectorstore:
         return langchain_opensearch.opensearch_doc_vector_store(model, knowledge_base)
     else:
         # For in-memory storage, pass knowledge base parameter for proper isolation

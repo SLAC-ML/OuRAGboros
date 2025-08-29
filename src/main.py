@@ -6,7 +6,7 @@ import streamlit as st
 import lib.config as config
 import lib.streamlit.nav as nav
 import lib.streamlit.session_state as ss
-import lib.streamlit.opensearch_toggle as opensearch_toggle
+import lib.streamlit.storage_toggle as storage_toggle
 import lib.streamlit.kb_utils as kb_utils
 import lib.rag_service as service
 
@@ -25,8 +25,8 @@ st.title(":snake: LangChain OuRAGboros")
 
 # Sidebar: Configuration
 with st.sidebar:
-    # OPENSEARCH TOGGLE WITH CONFIRMATION
-    opensearch_toggle.render_opensearch_toggle()
+    # STORAGE MODE TOGGLE WITH CONFIRMATION
+    storage_toggle.render_storage_toggle()
 
     # Knowledge Base Management Section
     with st.container(border=True):
@@ -101,7 +101,13 @@ with st.sidebar:
                                     ss.StateKey.EMBEDDING_MODEL
                                 ]
 
-                                if st.session_state[ss.StateKey.USE_OPENSEARCH]:
+                                if st.session_state[ss.StateKey.USE_QDRANT]:
+                                    # Create Qdrant collection
+                                    import lib.langchain.qdrant as langchain_qdrant
+                                    langchain_qdrant.ensure_qdrant_collection(
+                                        current_embedding, new_kb_name
+                                    )
+                                elif st.session_state[ss.StateKey.USE_OPENSEARCH]:
                                     langchain_opensearch.ensure_opensearch_index(
                                         current_embedding, new_kb_name
                                     )
@@ -224,8 +230,8 @@ if "_create_success_message" in st.session_state:
     st.success(st.session_state["_create_success_message"])
     del st.session_state["_create_success_message"]
 
-# Handle OpenSearch toggle confirmation dialog
-opensearch_toggle.render_opensearch_confirmation_dialog()
+# Handle storage mode toggle confirmation dialog
+storage_toggle.render_storage_confirmation_dialog()
 
 # Handle knowledge base deletion confirmations outside sidebar to avoid freezing issues
 # Check for any deletion confirmation flags and handle them
@@ -256,7 +262,22 @@ if kb_to_delete:
                 use_container_width=True,
             ):
                 try:
-                    if st.session_state[ss.StateKey.USE_OPENSEARCH]:
+                    if st.session_state[ss.StateKey.USE_QDRANT]:
+                        import lib.langchain.qdrant as langchain_qdrant
+
+                        current_embedding = st.session_state[
+                            ss.StateKey.EMBEDDING_MODEL
+                        ]
+                        # Delete Qdrant collection
+                        client = langchain_qdrant.get_qdrant_client()
+                        collection_name = langchain_qdrant.get_collection_name(
+                            current_embedding, kb_to_delete
+                        )
+                        try:
+                            client.delete_collection(collection_name=collection_name)
+                        except Exception:
+                            pass  # Collection might not exist
+                    elif st.session_state[ss.StateKey.USE_OPENSEARCH]:
                         import lib.langchain.opensearch as langchain_opensearch
 
                         current_embedding = st.session_state[
@@ -328,7 +349,7 @@ def _render_source_docs(docs):
         )
 
 # Show storage switching notice if confirmation dialog is active
-if st.session_state.get("_show_opensearch_confirm", False):
+if st.session_state.get("_show_storage_confirm", False):
     st.info("🔄 Storage mode change pending - complete the dialog in the sidebar to continue.")
 
 # Main chat loop: perform RAG and display results
@@ -336,7 +357,7 @@ if st.session_state.get("_show_opensearch_confirm", False):
 if (
     st.session_state.get(ss.StateKey.SEARCH_QUERY) and
     st.session_state.get(ss.StateKey.LLM_MODEL) and
-    not st.session_state.get("_show_opensearch_confirm", False)
+    not st.session_state.get("_show_storage_confirm", False)
 ):
     # Echo user query
     with st.chat_message("user"):
@@ -358,6 +379,7 @@ if (
             prompt_template=st.session_state[ss.StateKey.LLM_PROMPT],
             user_files=st.session_state.get(ss.StateKey.USER_CONTEXT, []),
             knowledge_base=current_kb,
+            use_qdrant=st.session_state[ss.StateKey.USE_QDRANT],
         )
 
     # Display the LLM’s answer

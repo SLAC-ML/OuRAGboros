@@ -8,7 +8,7 @@ from langchain_core.vectorstores import VectorStore
 
 import lib.streamlit.nav as nav
 import lib.streamlit.session_state as ss
-import lib.streamlit.opensearch_toggle as opensearch_toggle
+import lib.streamlit.storage_toggle as storage_toggle
 import lib.streamlit.kb_utils as kb_utils
 
 import lib.langchain.models as langchain_models
@@ -68,15 +68,24 @@ def _upload_text_to_vector_store(
 
     timestamp = int(time.time())
     for i, chunk in enumerate(chunks):
-        opensearch_document_id = hashlib.sha256(
-            '{}_{}_{}_{}_{}_{}'.format(
-                file_hash,
-                embedding_model_name,
-                text_page,
-                text_chunk_size,
-                text_chunk_overlap,
-                i,
-            ).encode('utf-8')).hexdigest()
+        # Create a deterministic document ID
+        id_string = '{}_{}_{}_{}_{}_{}'.format(
+            file_hash,
+            embedding_model_name,
+            text_page,
+            text_chunk_size,
+            text_chunk_overlap,
+            i,
+        )
+        
+        # For Qdrant, we need UUID format. Convert the hash to UUID format.
+        if st.session_state.get(ss.StateKey.USE_QDRANT, False):
+            import uuid
+            # Create a deterministic UUID from the string
+            opensearch_document_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, id_string))
+        else:
+            # For OpenSearch, use the original SHA256 hash
+            opensearch_document_id = hashlib.sha256(id_string.encode('utf-8')).hexdigest()
         metadata = {
             'embedding_model': embedding_model_name,
             'source': text_file_name,
@@ -97,7 +106,7 @@ def _upload_text_to_vector_store(
 
 with st.sidebar:
     # OPENSEARCH TOGGLE WITH CONFIRMATION
-    opensearch_toggle.render_opensearch_toggle()
+    storage_toggle.render_storage_toggle()
 
     # Knowledge Base Management Section (same simplified UI as main page)
     with st.container(border=True):
@@ -171,7 +180,13 @@ with st.sidebar:
                                     ss.StateKey.EMBEDDING_MODEL
                                 ]
 
-                                if st.session_state[ss.StateKey.USE_OPENSEARCH]:
+                                if st.session_state[ss.StateKey.USE_QDRANT]:
+                                    # Create Qdrant collection
+                                    import lib.langchain.qdrant as langchain_qdrant
+                                    langchain_qdrant.ensure_qdrant_collection(
+                                        current_embedding, new_kb_name
+                                    )
+                                elif st.session_state[ss.StateKey.USE_OPENSEARCH]:
                                     langchain_opensearch.ensure_opensearch_index(
                                         current_embedding, new_kb_name
                                     )
@@ -291,9 +306,17 @@ if len(uploaded_files) and st.button('Embed Text'):
     vector_store = ss.get_vector_store(
         st.session_state[ss.StateKey.USE_OPENSEARCH],
         st.session_state[ss.StateKey.EMBEDDING_MODEL],
-        st.session_state[ss.StateKey.KNOWLEDGE_BASE]
+        st.session_state[ss.StateKey.KNOWLEDGE_BASE],
+        st.session_state[ss.StateKey.USE_QDRANT]
     )
-    if st.session_state[ss.StateKey.USE_OPENSEARCH]:
+    if st.session_state[ss.StateKey.USE_QDRANT]:
+        st.text('Ensuring Qdrant collection existence...')
+        import lib.langchain.qdrant as langchain_qdrant
+        langchain_qdrant.ensure_qdrant_collection(
+            st.session_state[ss.StateKey.EMBEDDING_MODEL],
+            st.session_state[ss.StateKey.KNOWLEDGE_BASE]
+        )
+    elif st.session_state[ss.StateKey.USE_OPENSEARCH]:
         st.text('Ensuring OpenSearch index existence...')
         langchain_opensearch.ensure_opensearch_index(
             st.session_state[ss.StateKey.EMBEDDING_MODEL],
@@ -412,7 +435,22 @@ if kb_to_delete:
                 use_container_width=True,
             ):
                 try:
-                    if st.session_state[ss.StateKey.USE_OPENSEARCH]:
+                    if st.session_state[ss.StateKey.USE_QDRANT]:
+                        import lib.langchain.qdrant as langchain_qdrant
+
+                        current_embedding = st.session_state[
+                            ss.StateKey.EMBEDDING_MODEL
+                        ]
+                        # Delete Qdrant collection
+                        client = langchain_qdrant.get_qdrant_client()
+                        collection_name = langchain_qdrant.get_collection_name(
+                            current_embedding, kb_to_delete
+                        )
+                        try:
+                            client.delete_collection(collection_name=collection_name)
+                        except Exception:
+                            pass  # Collection might not exist
+                    elif st.session_state[ss.StateKey.USE_OPENSEARCH]:
                         current_embedding = st.session_state[
                             ss.StateKey.EMBEDDING_MODEL
                         ]
@@ -456,4 +494,4 @@ if kb_to_delete:
     confirm_delete()
 
 # Handle OpenSearch toggle confirmation dialog
-opensearch_toggle.render_opensearch_confirmation_dialog()
+storage_toggle.render_storage_confirmation_dialog()

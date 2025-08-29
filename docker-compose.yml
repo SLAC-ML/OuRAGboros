@@ -34,6 +34,25 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     restart: "always"
+  qdrant:
+    image: qdrant/qdrant:v1.12.1
+    labels:
+      kompose.service.type: ClusterIP
+      kompose.volume.size: 2Gi
+    ports:
+      - 6333:6333  # HTTP API
+      - 6334:6334  # gRPC API (optional, for high performance)
+    environment:
+      - QDRANT__STORAGE__STORAGE_PATH=/qdrant/storage
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+      - QDRANT__LOG_LEVEL=INFO
+      # Optimizations for concurrent performance
+      - QDRANT__SERVICE__MAX_REQUEST_SIZE_MB=32
+      - QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS=0  # Use all available CPUs
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: "always"
     #deploy:
     #  resources:
     #    reservations:
@@ -61,18 +80,22 @@ services:
       - "OPENSEARCH_BASE_URL=${OPENSEARCH_BASE_URL}"
       - "OPENSEARCH_INDEX_PREFIX=${OPENSEARCH_INDEX_PREFIX}"
       - "PREFER_OPENSEARCH=${PREFER_OPENSEARCH}"
+      # Qdrant configuration
+      - "QDRANT_BASE_URL=${QDRANT_BASE_URL}"
+      - "PREFER_QDRANT=${PREFER_QDRANT}"
       - "HUGGINGFACE_EMBEDDING_MODEL_DEFAULT=${HUGGINGFACE_EMBEDDING_MODEL_DEFAULT}"
       - "HUGGINGFACE_FINETUNED_EMBEDDING_MODEL=${HUGGINGFACE_FINETUNED_EMBEDDING_MODEL}"
       - "OPENAI_API_KEY=${OPENAI_API_KEY}"
       - "GOOGLE_API_KEY=${GOOGLE_API_KEY}"
     env_file:
-      - .kubernetes.env
+      - .local.env
     volumes:
       - ouragboros_models:/app/models
     restart: "always"
     depends_on:
       - ollama
       - opensearch
+      - qdrant
     #deploy:
     #  resources:
     #    reservations:
@@ -96,3 +119,4 @@ volumes:
   opensearch_data:
   ollama_data:
   ouragboros_models:
+  qdrant_data:

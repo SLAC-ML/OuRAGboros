@@ -1,0 +1,16 @@
+---
+# Patch the ConfigMap to enable Qdrant
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubernetes-env
+data:
+  # Qdrant configuration
+  QDRANT_BASE_URL: 'http://qdrant:6333'
+  PREFER_QDRANT: 'true'
+  # Keep OpenSearch as fallback (set to false to disable completely)
+  PREFER_OPENSEARCH: 'false'
+  # Performance settings optimized for Qdrant
+  HUGGINGFACE_EMBEDDING_MODEL_DEFAULT: 'thellert/physbert_cased'
+  # Reduce OpenSearch memory since Qdrant is primary
+  OPENSEARCH_JAVA_OPTS: '-Xms1g -Xmx2g'

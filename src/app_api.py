@@ -24,6 +24,7 @@ class QueryRequest(BaseModel):
     max_documents: int = 5
     score_threshold: float = 0.0
     use_opensearch: bool = False
+    use_qdrant: bool = False
     prompt: str
     files: List[FileUpload] = []
     history: List[Dict[str, str]] = []
@@ -61,6 +62,7 @@ def ask(req: QueryRequest):
         history=req.history,
         use_rag=req.use_rag,
         knowledge_base=req.knowledge_base,
+        use_qdrant=req.use_qdrant,
     )
     # only return doc metadata, not full text
     doc_info = [

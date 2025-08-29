@@ -27,6 +27,8 @@ class Env(str):
     PREFER_OPENSEARCH = 'PREFER_OPENSEARCH'
     OPENSEARCH_BASE_URL = 'OPENSEARCH_BASE_URL'
     OPENSEARCH_INDEX_PREFIX = 'OPENSEARCH_INDEX_PREFIX'
+    QDRANT_BASE_URL = 'QDRANT_BASE_URL'
+    PREFER_QDRANT = 'PREFER_QDRANT'
 
 def _bool_from_env(env: str) -> bool:
     value = os.getenv(env).lower() if os.getenv(env) else None
@@ -107,6 +109,10 @@ pdf_parser_model = os.getenv(Env.PDF_PARSER_MODEL)
 prefer_opensearch = _bool_from_env(Env.PREFER_OPENSEARCH)
 opensearch_base_url = os.getenv(Env.OPENSEARCH_BASE_URL)
 opensearch_index_prefix = os.getenv(Env.OPENSEARCH_INDEX_PREFIX)
+
+# Qdrant configuration
+prefer_qdrant = _bool_from_env(Env.PREFER_QDRANT)
+qdrant_base_url = os.getenv(Env.QDRANT_BASE_URL, 'http://localhost:6333')
 
 
 def opensearch_index_settings(vector_size: int):

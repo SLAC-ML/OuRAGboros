@@ -4,14 +4,15 @@ Knowledge base utilities for consistent KB list management across pages
 import streamlit as st
 import lib.streamlit.session_state as ss
 import lib.langchain.opensearch as langchain_opensearch
+import lib.langchain.qdrant as langchain_qdrant
 
 
 def get_current_knowledge_bases(available_knowledge_bases_fallback):
     """
-    Get current knowledge base list based on OpenSearch toggle state.
+    Get current knowledge base list based on storage mode (Qdrant, OpenSearch, or In-Memory).
     
     This function provides consistent KB list logic across all pages with proper
-    fallback handling when OpenSearch is not ready on first page load.
+    fallback handling when vector stores are not ready on first page load.
     
     Args:
         available_knowledge_bases_fallback: Cached KB list from ss.init() as fallback
@@ -19,22 +20,36 @@ def get_current_knowledge_bases(available_knowledge_bases_fallback):
     Returns:
         tuple: (current_available_kbs, storage_info)
     """
-    current_use_opensearch = st.session_state.get(
-        ss.StateKey.USE_OPENSEARCH, 
-        st.session_state.get('prefer_opensearch', True)
-    )
+    current_use_qdrant = st.session_state.get(ss.StateKey.USE_QDRANT, False)
+    current_use_opensearch = st.session_state.get(ss.StateKey.USE_OPENSEARCH, False)
     
-    if current_use_opensearch:
+    if current_use_qdrant:
+        try:
+            current_available_kbs = langchain_qdrant.get_available_knowledge_bases()
+            storage_info = "🚀 Qdrant (High-Performance)"
+        except Exception as e:
+            # First, try a quick retry (Qdrant might just be slow to respond)
+            try:
+                import time
+                time.sleep(0.1)  # Brief pause
+                current_available_kbs = langchain_qdrant.get_available_knowledge_bases()
+                storage_info = "🚀 Qdrant (High-Performance)"
+            except Exception:
+                # Fallback to cached list from ss.init() if Qdrant not ready
+                qdrant_kbs = [kb for kb in available_knowledge_bases_fallback if kb != "default"] 
+                current_available_kbs = ["default"] + qdrant_kbs
+                storage_info = "⚠️ Qdrant initializing..."
+    elif current_use_opensearch:
         try:
             current_available_kbs = langchain_opensearch.get_available_knowledge_bases()
-            storage_info = "📊 OpenSearch (Persistent)"
+            storage_info = "📊 OpenSearch (Legacy Persistent)"
         except Exception as e:
             # First, try a quick retry (OpenSearch might just be slow to respond)
             try:
                 import time
                 time.sleep(0.1)  # Brief pause
                 current_available_kbs = langchain_opensearch.get_available_knowledge_bases()
-                storage_info = "📊 OpenSearch (Persistent)"
+                storage_info = "📊 OpenSearch (Legacy Persistent)"
             except Exception:
                 # Fallback to cached list from ss.init() if OpenSearch not ready
                 opensearch_kbs = [kb for kb in available_knowledge_bases_fallback if kb != "default"] 

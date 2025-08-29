@@ -1,0 +1,111 @@
+---
+# Qdrant PersistentVolumeClaim for data persistence
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    io.kompose.service: qdrant-data
+  name: qdrant-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# Qdrant Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: qdrant
+  name: qdrant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: qdrant
+  template:
+    metadata:
+      labels:
+        io.kompose.service: qdrant
+    spec:
+      containers:
+      - name: qdrant
+        image: qdrant/qdrant:v1.12.1
+        ports:
+        - containerPort: 6333
+          name: http
+          protocol: TCP
+        - containerPort: 6334
+          name: grpc
+          protocol: TCP
+        env:
+        # Performance optimizations for concurrent workloads
+        - name: QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS
+          value: "0"  # Use all available threads
+        - name: QDRANT__STORAGE__OPTIMIZERS__DEFAULT_SEGMENT_NUMBER
+          value: "4"  # More segments for better parallelization
+        - name: QDRANT__STORAGE__OPTIMIZERS__MAX_SEGMENT_SIZE
+          value: "20000"
+        - name: QDRANT__STORAGE__OPTIMIZERS__MEMMAP_THRESHOLD
+          value: "50000"
+        - name: QDRANT__STORAGE__OPTIMIZERS__INDEXING_THRESHOLD
+          value: "10000"
+        # Resource optimizations
+        - name: QDRANT__STORAGE__HNSW__MAX_INDEXING_THREADS
+          value: "0"  # Use all available threads for indexing
+        - name: QDRANT__STORAGE__HNSW__EF_CONSTRUCT
+          value: "200"  # Higher accuracy during construction
+        - name: QDRANT__STORAGE__HNSW__M
+          value: "16"   # Good balance of accuracy/memory
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        volumeMounts:
+        - mountPath: /qdrant/storage
+          name: qdrant-data
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 6333
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 6333
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: qdrant-data
+        persistentVolumeClaim:
+          claimName: qdrant-data
+
+---
+# Qdrant Service
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: qdrant
+  name: qdrant
+spec:
+  ports:
+  - name: http
+    port: 6333
+    protocol: TCP
+    targetPort: 6333
+  - name: grpc
+    port: 6334
+    protocol: TCP
+    targetPort: 6334
+  selector:
+    io.kompose.service: qdrant
+  type: ClusterIP
