@@ -1,5 +1,7 @@
 import os.path
 import threading
+import numpy as np
+from typing import List
 
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore, InMemoryVectorStore
@@ -18,6 +20,42 @@ _vector_size_cache = {}
 _vector_size_cache_lock = threading.Lock()
 _in_memory_vector_stores = {}
 _in_memory_vector_stores_lock = threading.Lock()
+
+
+class MockEmbeddings(Embeddings):
+    """
+    Mock embeddings class that returns instant pre-computed vectors.
+    Used for performance testing to isolate embedding generation bottlenecks.
+    
+    Compatible with PhysBERT (768-dimensional vectors).
+    """
+    
+    def __init__(self, dimension: int = 768):
+        self.dimension = dimension
+        # Pre-computed normalized vector for consistent similarity scores
+        # This simulates a realistic PhysBERT embedding for query "What's this docs about?"
+        np.random.seed(42)  # Reproducible vector
+        self._cached_vector = np.random.normal(0, 1, dimension)
+        # Normalize to unit vector (like real embeddings)
+        self._cached_vector = self._cached_vector / np.linalg.norm(self._cached_vector)
+    
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Return cached vector for all documents instantly."""
+        # Return slightly varied vectors to simulate realistic diversity
+        vectors = []
+        for i, text in enumerate(texts):
+            # Add small random variation (but keep reproducible)
+            np.random.seed(42 + i)
+            variation = np.random.normal(0, 0.01, self.dimension)  # Small noise
+            varied_vector = self._cached_vector + variation
+            varied_vector = varied_vector / np.linalg.norm(varied_vector)  # Renormalize
+            vectors.append(varied_vector.tolist())
+        return vectors
+    
+    def embed_query(self, text: str) -> List[float]:
+        """Return cached vector for query instantly (no computation)."""
+        # This eliminates the PhysBERT bottleneck completely
+        return self._cached_vector.tolist()
 
 
 def get_in_memory_vector_store(embedding_model: str, knowledge_base: str = "default") -> VectorStore:
@@ -99,11 +137,23 @@ def get_embedding(embedding_model: str) -> Embeddings:
     """
     Returns a cached embedding instance for the provided model. Thread-safe implementation
     prevents multiple instantiation of the same model across concurrent requests.
+    
+    When USE_MOCK_EMBEDDINGS=true, returns MockEmbeddings for performance testing.
 
     :param embedding_model: Model identifier (e.g., "huggingface:bert-base")
     :return: Cached embedding instance
     """
-    # Check if already cached
+    # Check if mock embeddings are enabled for performance testing
+    if config.use_mock_embeddings:
+        mock_key = f"mock_{embedding_model}"
+        if mock_key not in _embedding_cache:
+            with _embedding_cache_lock:
+                if mock_key not in _embedding_cache:
+                    print(f"🧪 Using MOCK embeddings for {embedding_model} (performance testing)")
+                    _embedding_cache[mock_key] = MockEmbeddings()
+        return _embedding_cache[mock_key]
+    
+    # Normal embedding logic (original implementation)
     if embedding_model not in _embedding_cache:
         with _embedding_cache_lock:
             # Double-check locking pattern
@@ -133,6 +183,10 @@ def get_vector_size(embedding_model: str) -> int:
     :param embedding_model: Model identifier
     :return: Vector dimension size
     """
+    # Handle mock embeddings
+    if config.use_mock_embeddings:
+        return 768  # MockEmbeddings uses 768 dimensions (PhysBERT compatible)
+    
     if embedding_model not in _vector_size_cache:
         with _vector_size_cache_lock:
             if embedding_model not in _vector_size_cache:
