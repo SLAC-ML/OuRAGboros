@@ -1,14 +1,24 @@
 # app_api.py
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict
+import time
+import logging
+import cProfile
+import pstats
+import io
+from functools import wraps
 
 from lib.rag_service import answer_query
 from langchain.schema import Document
 import lib.streamlit.session_state as ss
 import lib.langchain.embeddings as langchain_embeddings
 import lib.langchain.opensearch as langchain_opensearch
+
+# Configure logging for timing
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+timing_logger = logging.getLogger("timing")
 
 
 class FileUpload(BaseModel):
@@ -39,6 +49,20 @@ class KBInspectRequest(BaseModel):
 
 app = FastAPI()
 
+# Timing middleware to instrument request performance
+@app.middleware("http")
+async def timing_middleware(request: Request, call_next):
+    start_time = time.time()
+    timing_logger.info(f"🚀 REQUEST START: {request.url.path}")
+    
+    response = await call_next(request)
+    
+    end_time = time.time()
+    duration = end_time - start_time
+    timing_logger.info(f"✅ REQUEST END: {request.url.path} - Duration: {duration:.3f}s")
+    
+    return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # or specify your frontend domain like ["http://localhost:8000"]
@@ -47,7 +71,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Profiling decorator
+def profile_request(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        pr = cProfile.Profile()
+        pr.enable()
+        
+        # Add detailed timing
+        start_time = time.time()
+        timing_logger.info(f"📊 PROFILING START: {func.__name__}")
+        
+        try:
+            result = func(*args, **kwargs)
+            
+            end_time = time.time()
+            duration = end_time - start_time
+            timing_logger.info(f"📊 PROFILING END: {func.__name__} - Duration: {duration:.3f}s")
+            
+            pr.disable()
+            
+            # Generate profile stats
+            s = io.StringIO()
+            ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
+            ps.print_stats(20)  # Top 20 functions
+            timing_logger.info(f"📈 PROFILE STATS:\n{s.getvalue()}")
+            
+            return result
+            
+        except Exception as e:
+            pr.disable()
+            timing_logger.error(f"❌ PROFILING ERROR: {func.__name__} - {str(e)}")
+            raise
+            
+    return wrapper
+
 @app.post("/ask")
+@profile_request
 def ask(req: QueryRequest):
     user_files = [(f.name, f.content) for f in req.files]
     answer, docs = answer_query(
