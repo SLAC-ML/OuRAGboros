@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OuRAGboros Streaming API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        textarea {
+            resize: vertical;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .response-area {
+            margin-top: 20px;
+        }
+        
+        .status {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-left: 4px solid #007bff;
+            margin-bottom: 10px;
+        }
+        
+        .response {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            min-height: 200px;
+            font-family: monospace;
+        }
+        
+        .documents {
+            background-color: #fff3cd;
+            padding: 10px;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+        }
+        
+        .config-section {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .config-section h3 {
+            margin-top: 0;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>OuRAGboros Streaming API Test</h1>
+    
+    <div class="config-section">
+        <h3>Configuration</h3>
+        
+        <div class="form-group">
+            <label for="endpoint">API Endpoint:</label>
+            <input type="text" id="endpoint" value="http://localhost:8001/ask/stream">
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="vectorStorage">Vector Storage:</label>
+                <select id="vectorStorage">
+                    <option value="qdrant">Qdrant</option>
+                    <option value="opensearch">OpenSearch</option>
+                    <option value="inmemory">In-Memory</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="knowledgeBase">Knowledge Base:</label>
+                <select id="knowledgeBase">
+                    <option value="default">default</option>
+                </select>
+                <button type="button" onclick="refreshKnowledgeBases()" style="margin-top: 5px; font-size: 12px; padding: 5px 10px;">Refresh KB List</button>
+                <div id="kbNote" style="font-size: 11px; color: #666; margin-top: 3px;"></div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="systemPrompt">System Prompt (optional):</label>
+            <textarea id="systemPrompt" rows="2" placeholder="You are a helpful physics assistant">You are a helpful physics assistant.</textarea>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="embeddingModel">Embedding Model:</label>
+                <select id="embeddingModel">
+                    <option value="huggingface:thellert/physbert_cased">PhysBERT (thellert/physbert_cased)</option>
+                    <option value="huggingface:sentence-transformers/all-mpnet-base-v2">All-MiniLM-L6-v2</option>
+                    <option value="huggingface:sentence-transformers/all-MiniLM-L6-v2">All-MiniLM-L6-v2</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="llmModel">LLM Model:</label>
+                <select id="llmModel">
+                    <option value="openai:gpt-4o-mini">OpenAI GPT-4o-mini</option>
+                    <option value="stanford:gpt-4o">Stanford GPT-4o</option>
+                    <option value="stanford:gpt-4.omini">Stanford GPT-4o-mini</option>
+                    <option value="stanford:claude-3-7-sonnet">Stanford Claude 3.7 Sonnet</option>
+                    <option value="stanford:gemini-2.0-flash-001">Stanford Gemini 2.0 Flash</option>
+                    <option value="stanford:deepseek-r1">Stanford DeepSeek R1</option>
+                    <option value="stanford:o3-mini">Stanford O3 Mini</option>
+                    <option value="ollama:llama3.1">Ollama Llama 3.1</option>
+                    <option value="ollama:llama3.2">Ollama Llama 3.2</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="useRag">Use RAG:</label>
+                <select id="useRag">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="maxDocuments">Max Documents:</label>
+                <input type="number" id="maxDocuments" value="5" min="1" max="20">
+            </div>
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label for="query">Query:</label>
+        <textarea id="query" rows="3" placeholder="Enter your question here...">What are the key techniques used in condensed matter physics?</textarea>
+    </div>
+    
+    <button id="sendButton" onclick="sendQuery()">Send Query</button>
+    <button id="clearButton" onclick="clearResponse()">Clear Response</button>
+    
+    <div class="response-area">
+        <div id="status" class="status" style="display: none;"></div>
+        <div id="documents" class="documents" style="display: none;"></div>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="response" class="response"></div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        
+        // Load knowledge bases when page loads
+        window.onload = function() {
+            refreshKnowledgeBases();
+        };
+        
+        // Refresh knowledge bases when vector store changes
+        document.getElementById('vectorStorage').addEventListener('change', function() {
+            refreshKnowledgeBases();
+        });
+        
+        function refreshKnowledgeBases() {
+            const vectorStorage = document.getElementById('vectorStorage').value;
+            const endpoint = document.getElementById('endpoint').value.replace('/ask/stream', '/kb/list');
+            
+            fetch(endpoint)
+                .then(response => response.json())
+                .then(data => {
+                    const kbSelect = document.getElementById('knowledgeBase');
+                    const kbNote = document.getElementById('kbNote');
+                    const currentValue = kbSelect.value;
+                    
+                    // Clear existing options
+                    kbSelect.innerHTML = '';
+                    
+                    let kbList = [];
+                    let noteText = '';
+                    
+                    if (vectorStorage === 'qdrant') {
+                        kbList = data.qdrant || [];
+                        if (data.qdrant_error) {
+                            noteText = `Error loading Qdrant KBs: ${data.qdrant_error}`;
+                        } else {
+                            noteText = `Found ${kbList.length} Qdrant knowledge bases.`;
+                        }
+                    } else if (vectorStorage === 'opensearch') {
+                        kbList = data.opensearch || [];
+                        if (data.opensearch_error) {
+                            noteText = `Error loading OpenSearch KBs: ${data.opensearch_error}`;
+                        } else {
+                            noteText = `Found ${kbList.length} OpenSearch knowledge bases.`;
+                        }
+                    } else { // inmemory
+                        kbList = data.in_memory || [];
+                        if (data.in_memory_error) {
+                            noteText = `Error loading in-memory KBs: ${data.in_memory_error}`;
+                        } else {
+                            noteText = `Found ${kbList.length} in-memory knowledge bases.`;
+                        }
+                    }
+                    
+                    // Add "default" if not in list
+                    if (!kbList.includes('default')) {
+                        kbList.unshift('default');
+                    }
+                    
+                    // Populate select dropdown
+                    kbList.forEach(kb => {
+                        const option = document.createElement('option');
+                        option.value = kb;
+                        option.textContent = kb;
+                        kbSelect.appendChild(option);
+                    });
+                    
+                    // Update note
+                    kbNote.textContent = noteText;
+                    
+                    // Restore previous selection if it exists
+                    if (kbList.includes(currentValue)) {
+                        kbSelect.value = currentValue;
+                    } else {
+                        kbSelect.value = 'default';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching knowledge bases:', error);
+                    // Fallback to default
+                    const kbSelect = document.getElementById('knowledgeBase');
+                    const kbNote = document.getElementById('kbNote');
+                    kbSelect.innerHTML = '<option value="default">default</option>';
+                    kbNote.textContent = 'Error loading KB list. Using defaults.';
+                });
+        }
+        
+        let isRequestInProgress = false;
+        
+        function sendQuery() {
+            if (isRequestInProgress) {
+                console.log('Request already in progress, ignoring duplicate');
+                return;
+            }
+            
+            const endpoint = document.getElementById('endpoint').value;
+            const query = document.getElementById('query').value.trim();
+            
+            if (!query) {
+                alert('Please enter a query');
+                return;
+            }
+            
+            // Set request in progress flag
+            isRequestInProgress = true;
+            
+            // Disable send button and clear previous results
+            const sendButton = document.getElementById('sendButton');
+            sendButton.disabled = true;
+            sendButton.textContent = 'Sending...';
+            
+            clearResponse();
+            
+            // Prepare request data
+            const vectorStorage = document.getElementById('vectorStorage').value;
+            const requestData = {
+                query: query,
+                embedding_model: document.getElementById('embeddingModel').value,
+                llm_model: document.getElementById('llmModel').value,
+                use_rag: document.getElementById('useRag').value === 'true',
+                use_qdrant: vectorStorage === 'qdrant',
+                use_opensearch: vectorStorage === 'opensearch',
+                knowledge_base: document.getElementById('knowledgeBase').value,
+                prompt: document.getElementById('systemPrompt').value,
+                max_documents: parseInt(document.getElementById('maxDocuments').value),
+                score_threshold: 0.0,
+                files: [],
+                history: []
+            };
+            
+            // Make the streaming request
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = ''; // Buffer to handle incomplete chunks
+                
+                function readStream() {
+                    return reader.read().then(({ done, value }) => {
+                        if (done) {
+                            // Stream finished
+                            isRequestInProgress = false;
+                            sendButton.disabled = false;
+                            sendButton.textContent = 'Send Query';
+                            document.getElementById('status').style.display = 'none';
+                            return;
+                        }
+                        
+                        // Add new chunk to buffer
+                        buffer += decoder.decode(value, { stream: true });
+                        
+                        // Process complete lines
+                        const lines = buffer.split('\n');
+                        // Keep the last line in buffer (might be incomplete)
+                        buffer = lines.pop() || '';
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const jsonStr = line.slice(6);
+                                    if (jsonStr.trim()) { // Only parse non-empty JSON
+                                        const data = JSON.parse(jsonStr);
+                                        handleStreamData(data);
+                                    }
+                                } catch (e) {
+                                    console.error('Error parsing JSON:', e, 'Line:', line);
+                                }
+                            }
+                        }
+                        
+                        // Continue reading
+                        return readStream();
+                    });
+                }
+                
+                return readStream();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Error: ' + error.message);
+                isRequestInProgress = false;
+                sendButton.disabled = false;
+                sendButton.textContent = 'Send Query';
+            });
+        }
+        
+        function handleStreamData(data) {
+            console.log('Stream data received:', data.type, data);
+            const statusDiv = document.getElementById('status');
+            const documentsDiv = document.getElementById('documents');
+            const responseDiv = document.getElementById('response');
+            const errorDiv = document.getElementById('error');
+            
+            switch (data.type) {
+                case 'status':
+                    statusDiv.textContent = data.message;
+                    statusDiv.style.display = 'block';
+                    break;
+                    
+                case 'clear_response':
+                    // Clear previous partial response for clean fallback
+                    responseDiv.textContent = '';
+                    documentsDiv.style.display = 'none'; // Clear documents too
+                    statusDiv.textContent = data.message + ' (This should not happen - indicates LLM integration bug)';
+                    statusDiv.style.display = 'block';
+                    console.warn('⚠️ PRIMARY LLM FAILED - This indicates a bug in the LLM integration that should be fixed');
+                    break;
+                    
+                case 'documents':
+                    if (data.count > 0) {
+                        let docHtml = `<strong>Retrieved ${data.count} documents:</strong><br>`;
+                        data.data.forEach((doc, index) => {
+                            docHtml += `${index + 1}. ${doc.id} (score: ${doc.score.toFixed(3)})<br>`;
+                            docHtml += `   Snippet: ${doc.snippet}...<br><br>`;
+                        });
+                        documentsDiv.innerHTML = docHtml;
+                        documentsDiv.style.display = 'block';
+                    } else {
+                        documentsDiv.innerHTML = '<strong>No documents retrieved</strong>';
+                        documentsDiv.style.display = 'block';
+                    }
+                    break;
+                    
+                case 'token':
+                    responseDiv.textContent = data.partial_answer;
+                    // Auto-scroll to bottom
+                    responseDiv.scrollTop = responseDiv.scrollHeight;
+                    break;
+                    
+                case 'complete':
+                    responseDiv.textContent = data.final_answer;
+                    statusDiv.textContent = `Completed in ${data.total_time.toFixed(2)}s (LLM: ${data.llm_time.toFixed(2)}s)`;
+                    break;
+                    
+                case 'error':
+                    showError('Stream Error: ' + data.message);
+                    break;
+                    
+                case 'end':
+                    statusDiv.style.display = 'none';
+                    break;
+            }
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        
+        function clearResponse() {
+            document.getElementById('status').style.display = 'none';
+            document.getElementById('documents').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('response').textContent = '';
+        }
+        
+        // Allow Enter key to send query (with Shift+Enter for new line)
+        document.getElementById('query').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendQuery();
+            }
+        });
+    </script>
+</body>
+</html>
