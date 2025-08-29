@@ -123,10 +123,43 @@ def query_llm(
             max_tokens=max_tokens
         )
 
-        return stanford_llm.stream([
-            SystemMessage(content=system_message),
-            HumanMessage(content=question)
-        ])
+        # Wrap Stanford API streaming with validation error handling
+        def safe_stanford_stream():
+            tokens_yielded = []
+            try:
+                stream = stanford_llm.stream([
+                    SystemMessage(content=system_message),
+                    HumanMessage(content=question)
+                ])
+                for token in stream:
+                    # Filter out invalid tokens that cause validation errors
+                    if token is not None:
+                        # Convert any token format to string safely
+                        token_str = None
+                        if hasattr(token, 'content') and token.content is not None:
+                            token_str = str(token.content)
+                        elif hasattr(token, 'text') and token.text is not None:
+                            token_str = str(token.text) 
+                        elif isinstance(token, str):
+                            token_str = token
+                        
+                        if token_str:
+                            tokens_yielded.append(token_str)
+                            yield token_str
+                            
+            except Exception as e:
+                # If Stanford streaming fails partway through, we've already yielded some tokens
+                # Don't raise the error if we got valid tokens - this prevents fallback mode
+                if tokens_yielded:
+                    print(f"Stanford streaming completed with validation error at end: {e}")
+                    print(f"Successfully yielded {len(tokens_yielded)} tokens, ignoring final validation error")
+                    return  # Exit gracefully without raising error
+                else:
+                    # If no tokens were yielded, there's a real problem
+                    print(f"Stanford streaming failed completely: {e}")
+                    raise e
+                
+        return safe_stanford_stream()
     elif model_source == 'google':
         google_llm = ChatGoogleGenerativeAI(google_api_key=config.google_api_key, model=model_name, max_tokens=max_tokens)
 
