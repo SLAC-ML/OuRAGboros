@@ -1,4 +1,4 @@
-from typing import Iterator
+from typing import Iterator, AsyncGenerator
 import logging
 
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -22,6 +22,19 @@ def _openai_client():
 
 def _stanford_client():
     return openai.Client(api_key=config.stanford_api_key, base_url=config.stanford_base_url)
+
+# Global async client for Stanford API (connection pooling + async)
+_stanford_async_client = None
+
+def _get_stanford_async_client():
+    """Get or create shared async Stanford client for connection pooling"""
+    global _stanford_async_client
+    if _stanford_async_client is None and config.stanford_api_key:
+        _stanford_async_client = openai.AsyncOpenAI(
+            api_key=config.stanford_api_key,
+            base_url=config.stanford_base_url
+        )
+    return _stanford_async_client
 
 def _google_client():
     return genai.Client(api_key=config.google_api_key)
@@ -94,6 +107,19 @@ def query_llm(
     :param max_tokens: The maximum number of tokens to generate in the response.
     :return:
     """
+    
+    # Mock LLM for performance testing - returns instant response
+    if config.use_mock_llm:
+        def mock_llm_stream():
+            mock_response = f"Mock response to: {question[:50]}{'...' if len(question) > 50 else ''}"
+            # Split response into tokens to simulate streaming
+            words = mock_response.split()
+            for word in words:
+                yield word + " "
+        
+        print(f"🤖 MOCK LLM: Using mock response for {llm_model}")
+        return mock_llm_stream()
+    
     model_source, model_name = langchain_utils.parse_model_name(llm_model)
     print("$$$$$$$$$$$$model_source:", model_source)
 
@@ -169,3 +195,83 @@ def query_llm(
         ])
     else:
         return iter(())
+
+
+async def query_llm_async(
+        llm_model: str,
+        question: str,
+        system_message: str = "",
+        max_tokens: int = 2000,
+) -> AsyncGenerator[str, None]:
+    """
+    Async version of query_llm for better concurrency performance.
+    Uses native async OpenAI client to avoid blocking the event loop.
+    
+    :param question: The user's question
+    :param system_message: System prompt
+    :param llm_model: Model specification (e.g., "stanford:gpt-4o-mini") 
+    :param max_tokens: Maximum tokens to generate
+    :return: Async generator yielding token strings
+    """
+    
+    # Mock LLM for performance testing - returns instant response
+    if config.use_mock_llm:
+        mock_response = f"Mock response to: {question[:50]}{'...' if len(question) > 50 else ''}"
+        # Split response into tokens to simulate streaming
+        words = mock_response.split()
+        for word in words:
+            yield word + " "
+        return
+    
+    model_source, model_name = langchain_utils.parse_model_name(llm_model)
+    
+    if model_source == 'stanford':
+        # Use native async OpenAI client for Stanford API
+        async_client = _get_stanford_async_client()
+        if not async_client:
+            raise Exception("Stanford API key not configured")
+        
+        try:
+            # Native async streaming call - no blocking!
+            stream = await async_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": question}
+                ],
+                stream=True,
+                max_tokens=max_tokens
+            )
+            
+            # Async iteration over stream - truly concurrent!
+            async for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    if content:
+                        yield content
+            
+        except Exception as e:
+            # Log error but re-raise for fallback handling
+            print(f"Stanford async streaming failed: {e}")
+            raise e
+    
+    else:
+        # For other models, fall back to sync approach (wrapped in async)
+        # TODO: Implement async versions for other providers
+        sync_generator = query_llm(llm_model, question, system_message, max_tokens)
+        
+        # Convert sync generator to async (not ideal but maintains compatibility)
+        import asyncio
+        loop = asyncio.get_event_loop()
+        
+        def get_next_token():
+            try:
+                return next(sync_generator)
+            except StopIteration:
+                return None
+        
+        while True:
+            token = await loop.run_in_executor(None, get_next_token)
+            if token is None:
+                break
+            yield token

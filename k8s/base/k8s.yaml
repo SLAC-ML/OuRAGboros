@@ -514,7 +514,7 @@ spec:
                 configMapKeyRef:
                   key: QDRANT_BASE_URL
                   name: kubernetes-env
-          image: slacml/ouragboros:25.08.29-2
+          image: slacml/ouragboros:25.08.30
           name: ouragboros
           resources:
             requests:

@@ -302,19 +302,15 @@ async def answer_query_stream(
         
         # Try primary LLM query first
         try:
-            timing_logger.info(f"🔧 CALLING langchain_llm.query_llm with model: {llm_model}")
-            tokens = langchain_llm.query_llm(llm_model, query, system_msg)
-            timing_logger.info(f"✅ GOT TOKENS from query_llm: {type(tokens)}")
+            timing_logger.info(f"🔧 CALLING langchain_llm.query_llm_async with model: {llm_model}")
             
             model_source, _ = langchain_utils.parse_model_name(llm_model)
             
             answer_tokens = []
-            timing_logger.info(f"🔧 CREATING token_generator for model_source: {model_source}")
-            token_generator = _async_token_generator(tokens, model_source)
+            timing_logger.info(f"🔧 STARTING async LLM streaming for model_source: {model_source}")
             
-            timing_logger.info(f"🔧 STARTING async iteration over tokens")
-            async for chunk in token_generator:
-                token_content = chunk
+            # Use the new async LLM function - no blocking!
+            async for token_content in langchain_llm.query_llm_async(llm_model, query, system_msg):
                 answer_tokens.append(token_content)
                 
                 yield {

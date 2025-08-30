@@ -30,6 +30,7 @@ class Env(str):
     QDRANT_BASE_URL = 'QDRANT_BASE_URL'
     PREFER_QDRANT = 'PREFER_QDRANT'
     USE_MOCK_EMBEDDINGS = 'USE_MOCK_EMBEDDINGS'
+    USE_MOCK_LLM = 'USE_MOCK_LLM'
 
 def _bool_from_env(env: str) -> bool:
     value = os.getenv(env).lower() if os.getenv(env) else None
@@ -117,6 +118,9 @@ qdrant_base_url = os.getenv(Env.QDRANT_BASE_URL, 'http://localhost:6333')
 
 # Mock embeddings for performance testing
 use_mock_embeddings = _bool_from_env(Env.USE_MOCK_EMBEDDINGS)
+
+# Mock LLM for performance testing
+use_mock_llm = _bool_from_env(Env.USE_MOCK_LLM)
 
 
 def opensearch_index_settings(vector_size: int):
