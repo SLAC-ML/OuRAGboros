@@ -83,7 +83,7 @@ def get_available_llms() -> list[str]:
                       exc_info=True)
 
     return [
-        *[f'ollama:{remote_model['model']}' for remote_model in ollama_models],
+        *[f'ollama:{remote_model["model"]}' for remote_model in ollama_models],
         *[f'openai:{remote_model.id}' for remote_model in openai_models],
         *[f'stanford:{remote_model.id}' for remote_model in stanford_models],
         *[f'google:{remote_model.name}' for remote_model in google_models],
