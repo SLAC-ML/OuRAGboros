@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OuRAGboros Query Logs Viewer</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+        line-height: 1.6;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+
+      button {
+        background-color: #007bff;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      button:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+      }
+
+      button.secondary {
+        background-color: #6c757d;
+      }
+
+      button.secondary:hover {
+        background-color: #545b62;
+      }
+
+      .filters {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+      }
+
+      .filter-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+      }
+
+      .filter-row .form-group {
+        flex: 1;
+        margin-bottom: 0;
+      }
+
+      .stats {
+        background-color: #e9ecef;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        display: none;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+      }
+
+      .stat-item {
+        background-color: white;
+        padding: 10px;
+        border-radius: 4px;
+        border-left: 4px solid #007bff;
+      }
+
+      .stat-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #007bff;
+      }
+
+      .stat-label {
+        color: #666;
+        font-size: 14px;
+      }
+
+      .logs-table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .logs-table th {
+        background-color: #f8f9fa;
+        padding: 12px 8px;
+        text-align: left;
+        border-bottom: 2px solid #ddd;
+        font-size: 14px;
+        font-weight: bold;
+      }
+
+      .logs-table td {
+        padding: 8px;
+        border-bottom: 1px solid #eee;
+        font-size: 13px;
+        vertical-align: top;
+      }
+
+      .logs-table tr:hover {
+        background-color: #f8f9fa;
+      }
+
+      .expandable {
+        cursor: pointer;
+        color: #007bff;
+        text-decoration: underline;
+      }
+
+      .expandable:hover {
+        color: #0056b3;
+      }
+
+      .expanded-details {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin: 10px 0;
+        font-family: monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      .status-pending {
+        color: #ffc107;
+        font-weight: bold;
+      }
+
+      .status-completed {
+        color: #28a745;
+        font-weight: bold;
+      }
+
+      .status-failed {
+        color: #dc3545;
+        font-weight: bold;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+      }
+
+      .error {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 10px;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        margin: 20px 0;
+      }
+
+      .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      .pagination button {
+        padding: 5px 10px;
+        font-size: 12px;
+      }
+
+      .score {
+        display: inline-block;
+        background-color: #e9ecef;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 11px;
+        font-family: monospace;
+      }
+
+      .score.good { background-color: #d4edda; color: #155724; }
+      .score.medium { background-color: #fff3cd; color: #856404; }
+      .score.poor { background-color: #f8d7da; color: #721c24; }
+
+      .truncate {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .health-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 14px;
+        padding: 5px 10px;
+        border-radius: 4px;
+      }
+
+      .health-healthy {
+        background-color: #d4edda;
+        color: #155724;
+      }
+
+      .health-unhealthy {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>OuRAGboros Query Logs Viewer</h1>
+      <div>
+        <span id="healthStatus" class="health-status">Checking...</span>
+        <button onclick="loadStats()">Show Stats</button>
+        <button onclick="exportLogs('json')" class="secondary">Export JSON</button>
+        <button onclick="exportLogs('csv')" class="secondary">Export CSV</button>
+      </div>
+    </div>
+
+    <div class="filters">
+      <h3>Search & Filter</h3>
+      
+      <div class="filter-row">
+        <div class="form-group">
+          <label for="endpoint">API Endpoint:</label>
+          <input type="text" id="endpoint" value="http://localhost:8001" />
+        </div>
+        
+        <div class="form-group">
+          <label for="searchQuery">Search Query:</label>
+          <input type="text" id="searchQuery" placeholder="Search in questions and answers..." />
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <div class="form-group">
+          <label for="fromDate">From Date:</label>
+          <input type="datetime-local" id="fromDate" />
+        </div>
+        
+        <div class="form-group">
+          <label for="toDate">To Date:</label>
+          <input type="datetime-local" id="toDate" />
+        </div>
+        
+        <div class="form-group">
+          <label for="knowledgeBase">Knowledge Base:</label>
+          <select id="knowledgeBase">
+            <option value="">All</option>
+            <option value="default">default</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="llmModel">LLM Model:</label>
+          <select id="llmModel">
+            <option value="">All</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: end;">
+        <button onclick="searchLogs()">Search</button>
+        <button onclick="clearFilters()" class="secondary">Clear Filters</button>
+        <span style="font-size: 14px; color: #666;">
+          Results per page: 
+          <select id="pageSize" style="width: 70px; margin-left: 5px;">
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="200">200</option>
+          </select>
+        </span>
+      </div>
+    </div>
+
+    <div id="stats" class="stats">
+      <h3>Statistics</h3>
+      <div id="statsContent" class="stats-grid"></div>
+    </div>
+
+    <div id="loading" class="loading" style="display: none;">Loading logs...</div>
+    <div id="error" class="error" style="display: none;"></div>
+
+    <div id="results">
+      <table id="logsTable" class="logs-table" style="display: none;">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Query</th>
+            <th>Model</th>
+            <th>KB</th>
+            <th>Docs</th>
+            <th>Times</th>
+            <th>RAGAS Scores</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="logsTableBody">
+        </tbody>
+      </table>
+      
+      <div id="pagination" class="pagination" style="display: none;"></div>
+    </div>
+
+    <script>
+      let currentPage = 0;
+      let totalResults = 0;
+      let currentResults = [];
+
+      // Initialize page
+      window.onload = function() {
+        checkHealth();
+        searchLogs();
+        
+        // Set default date range (last 7 days)
+        const now = new Date();
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        document.getElementById('toDate').value = now.toISOString().slice(0, 16);
+        document.getElementById('fromDate').value = weekAgo.toISOString().slice(0, 16);
+      };
+
+      async function checkHealth() {
+        const endpoint = document.getElementById('endpoint').value;
+        const healthStatus = document.getElementById('healthStatus');
+        
+        try {
+          const response = await fetch(`${endpoint}/logs/health`);
+          const data = await response.json();
+          
+          if (data.status === 'healthy') {
+            healthStatus.textContent = `✓ Healthy (${data.total_logs} logs)`;
+            healthStatus.className = 'health-status health-healthy';
+          } else {
+            healthStatus.textContent = `✗ Unhealthy: ${data.error}`;
+            healthStatus.className = 'health-status health-unhealthy';
+          }
+        } catch (error) {
+          healthStatus.textContent = '✗ Connection Failed';
+          healthStatus.className = 'health-status health-unhealthy';
+        }
+      }
+
+      async function searchLogs(page = 0) {
+        currentPage = page;
+        const endpoint = document.getElementById('endpoint').value;
+        const pageSize = parseInt(document.getElementById('pageSize').value);
+        
+        const searchRequest = {
+          query: document.getElementById('searchQuery').value || '*',
+          from_date: document.getElementById('fromDate').value ? 
+            new Date(document.getElementById('fromDate').value).toISOString() : null,
+          to_date: document.getElementById('toDate').value ? 
+            new Date(document.getElementById('toDate').value).toISOString() : null,
+          knowledge_base: document.getElementById('knowledgeBase').value || null,
+          llm_model: document.getElementById('llmModel').value || null,
+          size: pageSize,
+          from_: page * pageSize
+        };
+
+        showLoading(true);
+        hideError();
+
+        try {
+          const response = await fetch(`${endpoint}/logs/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(searchRequest)
+          });
+
+          const data = await response.json();
+          
+          if (data.error) {
+            showError(`Search error: ${data.error}`);
+            return;
+          }
+
+          totalResults = data.total || 0;
+          currentResults = data.hits || [];
+          
+          displayResults();
+          updatePagination();
+          
+        } catch (error) {
+          showError(`Network error: ${error.message}`);
+        } finally {
+          showLoading(false);
+        }
+      }
+
+      function displayResults() {
+        const tbody = document.getElementById('logsTableBody');
+        const table = document.getElementById('logsTable');
+        
+        if (currentResults.length === 0) {
+          table.style.display = 'none';
+          document.getElementById('results').innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">No logs found matching your criteria.</p>';
+          return;
+        }
+
+        table.style.display = 'table';
+        tbody.innerHTML = '';
+
+        currentResults.forEach((hit, index) => {
+          const log = hit._source;
+          const row = document.createElement('tr');
+          
+          // Format timestamp
+          const timestamp = new Date(log.timestamp).toLocaleString();
+          
+          // Truncate query
+          const queryText = log.user_query.length > 50 ? 
+            log.user_query.substring(0, 50) + '...' : log.user_query;
+          
+          // RAGAS scores
+          const ragas = log.ragas_evaluation || {};
+          let ragasHtml = '';
+          if (ragas.error) {
+            ragasHtml = '<span style="color: #dc3545;">Error</span>';
+          } else if (ragas.faithfulness !== null && ragas.faithfulness !== undefined) {
+            ragasHtml = `
+              F:${formatScore(ragas.faithfulness)}
+              R:${formatScore(ragas.answer_relevancy)}
+              P:${formatScore(ragas.context_precision)}
+              C:${formatScore(ragas.context_recall)}
+            `;
+          } else {
+            ragasHtml = '<span style="color: #ffc107;">Pending</span>';
+          }
+
+          // Times
+          const retrievalTime = (log.rag_results?.retrieval_time || 0).toFixed(2);
+          const responseTime = (log.llm_response?.response_time || 0).toFixed(2);
+          const totalTime = (log.performance_metrics?.total_time || 0).toFixed(2);
+
+          row.innerHTML = `
+            <td>${timestamp}</td>
+            <td class="truncate" title="${escapeHtml(log.user_query)}">${escapeHtml(queryText)}</td>
+            <td>${escapeHtml(log.metadata?.llm_model || 'N/A')}</td>
+            <td>${escapeHtml(log.metadata?.knowledge_base || 'N/A')}</td>
+            <td>${log.rag_results?.documents_count || 0}</td>
+            <td>R:${retrievalTime}s<br>L:${responseTime}s<br>T:${totalTime}s</td>
+            <td style="font-size: 11px;">${ragasHtml}</td>
+            <td class="status-${log.status || 'unknown'}">${log.status || 'unknown'}</td>
+            <td>
+              <button onclick="showDetails('${hit._id}')" style="font-size: 11px; padding: 4px 8px;">Details</button>
+            </td>
+          `;
+          
+          tbody.appendChild(row);
+        });
+      }
+
+      function formatScore(score) {
+        if (score === null || score === undefined) return 'N/A';
+        const s = score.toFixed(2);
+        const cls = score >= 0.8 ? 'good' : score >= 0.6 ? 'medium' : 'poor';
+        return `<span class="score ${cls}">${s}</span>`;
+      }
+
+      function showDetails(logId) {
+        const hit = currentResults.find(h => h._id === logId);
+        if (!hit) return;
+
+        const log = hit._source;
+        
+        // Create details window
+        const detailsHtml = `
+          <div style="max-width: 800px; max-height: 600px; overflow: auto;">
+            <h3>Query Log Details</h3>
+            <p><strong>ID:</strong> ${log.id}</p>
+            <p><strong>Timestamp:</strong> ${new Date(log.timestamp).toLocaleString()}</p>
+            
+            <h4>Query</h4>
+            <div class="expanded-details" style="max-height: 100px;">${escapeHtml(log.user_query)}</div>
+            
+            <h4>Configuration</h4>
+            <div class="expanded-details" style="max-height: 150px;">${JSON.stringify(log.metadata, null, 2)}</div>
+            
+            <h4>Retrieved Documents (${log.rag_results?.documents_count || 0})</h4>
+            <div class="expanded-details" style="max-height: 200px;">${JSON.stringify(log.rag_results?.documents || [], null, 2)}</div>
+            
+            <h4>LLM Response</h4>
+            <div class="expanded-details" style="max-height: 200px;">${escapeHtml(log.llm_response?.final_answer || 'N/A')}</div>
+            
+            <h4>RAGAS Evaluation</h4>
+            <div class="expanded-details" style="max-height: 100px;">${JSON.stringify(log.ragas_evaluation || {}, null, 2)}</div>
+            
+            <h4>Performance Metrics</h4>
+            <div class="expanded-details" style="max-height: 100px;">${JSON.stringify(log.performance_metrics || {}, null, 2)}</div>
+            
+            <div style="margin-top: 20px; text-align: center;">
+              <button onclick="closeDetails()" class="secondary">Close</button>
+            </div>
+          </div>
+        `;
+
+        // Show modal
+        const modal = document.createElement('div');
+        modal.id = 'detailsModal';
+        modal.style.cssText = `
+          position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+          background: rgba(0,0,0,0.5); display: flex; justify-content: center; 
+          align-items: center; z-index: 1000;
+        `;
+        
+        const content = document.createElement('div');
+        content.style.cssText = `
+          background: white; padding: 20px; border-radius: 8px; 
+          max-width: 90%; max-height: 90%; overflow: auto;
+        `;
+        content.innerHTML = detailsHtml;
+        
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+        
+        // Close on background click
+        modal.onclick = function(e) {
+          if (e.target === modal) closeDetails();
+        };
+      }
+
+      function closeDetails() {
+        const modal = document.getElementById('detailsModal');
+        if (modal) modal.remove();
+      }
+
+      function updatePagination() {
+        const pagination = document.getElementById('pagination');
+        const pageSize = parseInt(document.getElementById('pageSize').value);
+        const totalPages = Math.ceil(totalResults / pageSize);
+        
+        if (totalPages <= 1) {
+          pagination.style.display = 'none';
+          return;
+        }
+        
+        pagination.style.display = 'flex';
+        pagination.innerHTML = `
+          <button onclick="searchLogs(0)" ${currentPage === 0 ? 'disabled' : ''}>First</button>
+          <button onclick="searchLogs(${currentPage - 1})" ${currentPage === 0 ? 'disabled' : ''}>Previous</button>
+          <span>Page ${currentPage + 1} of ${totalPages} (${totalResults} total)</span>
+          <button onclick="searchLogs(${currentPage + 1})" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>Next</button>
+          <button onclick="searchLogs(${totalPages - 1})" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>Last</button>
+        `;
+      }
+
+      async function loadStats() {
+        const endpoint = document.getElementById('endpoint').value;
+        const statsDiv = document.getElementById('stats');
+        const statsContent = document.getElementById('statsContent');
+        
+        try {
+          const response = await fetch(`${endpoint}/logs/stats`);
+          const stats = await response.json();
+          
+          if (stats.error) {
+            showError(`Stats error: ${stats.error}`);
+            return;
+          }
+          
+          statsContent.innerHTML = `
+            <div class="stat-item">
+              <div class="stat-value">${stats.total_queries}</div>
+              <div class="stat-label">Total Queries</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">${stats.avg_response_time.toFixed(2)}s</div>
+              <div class="stat-label">Avg Response Time</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">${stats.avg_ragas_scores.faithfulness.toFixed(2)}</div>
+              <div class="stat-label">Avg Faithfulness</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">${stats.avg_ragas_scores.answer_relevancy.toFixed(2)}</div>
+              <div class="stat-label">Avg Relevancy</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">${Object.keys(stats.model_counts).length}</div>
+              <div class="stat-label">Models Used</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">${Object.keys(stats.knowledge_base_counts).length}</div>
+              <div class="stat-label">Knowledge Bases</div>
+            </div>
+          `;
+          
+          statsDiv.style.display = 'block';
+          
+          // Update filter dropdowns
+          updateFilterDropdowns(stats);
+          
+        } catch (error) {
+          showError(`Network error loading stats: ${error.message}`);
+        }
+      }
+
+      function updateFilterDropdowns(stats) {
+        // Update LLM models dropdown
+        const llmSelect = document.getElementById('llmModel');
+        const currentLlm = llmSelect.value;
+        llmSelect.innerHTML = '<option value="">All</option>';
+        Object.keys(stats.model_counts || {}).forEach(model => {
+          const option = document.createElement('option');
+          option.value = model;
+          option.textContent = `${model} (${stats.model_counts[model]})`;
+          llmSelect.appendChild(option);
+        });
+        if (currentLlm) llmSelect.value = currentLlm;
+
+        // Update KB dropdown
+        const kbSelect = document.getElementById('knowledgeBase');
+        const currentKb = kbSelect.value;
+        kbSelect.innerHTML = '<option value="">All</option>';
+        Object.keys(stats.knowledge_base_counts || {}).forEach(kb => {
+          const option = document.createElement('option');
+          option.value = kb;
+          option.textContent = `${kb} (${stats.knowledge_base_counts[kb]})`;
+          kbSelect.appendChild(option);
+        });
+        if (currentKb) kbSelect.value = currentKb;
+      }
+
+      function clearFilters() {
+        document.getElementById('searchQuery').value = '';
+        document.getElementById('fromDate').value = '';
+        document.getElementById('toDate').value = '';
+        document.getElementById('knowledgeBase').value = '';
+        document.getElementById('llmModel').value = '';
+        document.getElementById('stats').style.display = 'none';
+      }
+
+      async function exportLogs(format) {
+        const endpoint = document.getElementById('endpoint').value;
+        const params = new URLSearchParams({
+          format: format,
+          query: document.getElementById('searchQuery').value || '*',
+          size: '1000'
+        });
+        
+        const fromDate = document.getElementById('fromDate').value;
+        const toDate = document.getElementById('toDate').value;
+        const kb = document.getElementById('knowledgeBase').value;
+        const model = document.getElementById('llmModel').value;
+        
+        if (fromDate) params.set('from_date', new Date(fromDate).toISOString());
+        if (toDate) params.set('to_date', new Date(toDate).toISOString());
+        if (kb) params.set('knowledge_base', kb);
+        if (model) params.set('llm_model', model);
+        
+        try {
+          const response = await fetch(`${endpoint}/logs/export?${params}`);
+          
+          if (!response.ok) {
+            throw new Error(`Export failed: ${response.status}`);
+          }
+          
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `query_logs_${new Date().toISOString().split('T')[0]}.${format}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          
+        } catch (error) {
+          showError(`Export error: ${error.message}`);
+        }
+      }
+
+      function showLoading(show) {
+        document.getElementById('loading').style.display = show ? 'block' : 'none';
+      }
+
+      function showError(message) {
+        const errorDiv = document.getElementById('error');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+      }
+
+      function hideError() {
+        document.getElementById('error').style.display = 'none';
+      }
+
+      function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // Allow Enter key to search
+      document.getElementById('searchQuery').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          searchLogs();
+        }
+      });
+
+      // Auto-refresh every 30 seconds
+      setInterval(function() {
+        checkHealth();
+        if (document.getElementById('searchQuery').value === '*' || 
+            document.getElementById('searchQuery').value === '') {
+          searchLogs(0);
+        }
+      }, 30000);
+    </script>
+  </body>
+</html>
