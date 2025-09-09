@@ -185,3 +185,20 @@ Various testing scripts for validating functionality:
 - **Search testing**: Use `./scripts/opensearch-browser.sh search "query" kb_name`
 - **Typical scores**: > 1.0 for relevant matches, > 0.5 for marginal matches
 - **KB isolation**: Ensure documents uploaded to intended knowledge base
+
+### `test_logging.py`
+
+Test script for the auto-log and eval feature. Tests the query logging system independently.
+
+**Usage:**
+```bash
+# Run all tests
+python scripts/test_logging.py
+
+# Tests included:
+# - Basic logging functionality
+# - RAGAS client connection
+# - Logger service operations
+```
+
+**Note:** Requires Docker services (OpenSearch, RAGAS evaluator) to be running for full functionality.

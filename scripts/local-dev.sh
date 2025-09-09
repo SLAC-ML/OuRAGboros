@@ -44,7 +44,7 @@ show_help() {
     echo "Services will be available at:"
     echo "  • Streamlit UI:    http://localhost:8501"
     echo "  • REST API:        http://localhost:8001"
-    echo "  • Query Logs:      query_logs_viewer.html (set endpoint to localhost:8001)"
+    echo "  • Query Logs:      tools/query_logs_viewer.html (set endpoint to localhost:8001)"
     echo "  • RAGAS Evaluator: http://localhost:8002"
     echo "  • OpenSearch:      http://localhost:9200"
     echo "  • Qdrant:          http://localhost:6333"
@@ -119,7 +119,7 @@ show_service_status() {
     echo -e "${GREEN}🌐 Access URLs:${NC}"
     echo "  • Streamlit UI:    http://localhost:8501"
     echo "  • REST API:        http://localhost:8001"
-    echo "  • Query Logs:      query_logs_viewer.html (set endpoint to localhost:8001)"
+    echo "  • Query Logs:      tools/query_logs_viewer.html (set endpoint to localhost:8001)"
     echo "  • RAGAS Evaluator: http://localhost:8002"
     echo "  • OpenSearch:      http://localhost:9200"
     echo "  • Qdrant:          http://localhost:6333"
@@ -203,7 +203,7 @@ check_health() {
     echo -e "${BLUE}💡 Tips:${NC}"
     echo "  • If REST API is healthy but Logging API isn't, rebuild with: $0 restart"
     echo "  • If RAGAS Evaluator is unhealthy, check logs: $0 logs"
-    echo "  • Open query_logs_viewer.html in browser to view logged queries"
+    echo "  • Open tools/query_logs_viewer.html in browser to view logged queries"
     echo ""
 }
 

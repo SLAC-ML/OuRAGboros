@@ -23,7 +23,7 @@ The Auto-Log and Eval feature automatically captures, logs, and evaluates all RA
    - Uses Stanford AI API for evaluation (faithfulness, answer_relevancy)
    - Healthcheck monitoring and automatic restarts
 
-4. **Query Logs Viewer** (`query_logs_viewer.html`)
+4. **Query Logs Viewer** (`tools/query_logs_viewer.html`)
    - Fast, minimal HTML tool for log inspection
    - Real-time search and filtering capabilities
    - Export functionality (JSON/CSV)
@@ -84,7 +84,7 @@ curl -X POST http://localhost:8001/ask/stream \
 
 ### 4. View Logs
 
-Open `query_logs_viewer.html` in your browser and set the API endpoint to `http://localhost:8001`.
+Open `tools/query_logs_viewer.html` in your browser and set the API endpoint to `http://localhost:8001`.
 
 ## Configuration
 
