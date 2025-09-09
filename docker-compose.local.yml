@@ -50,6 +50,38 @@ services:
       - qdrant_data:/qdrant/storage
     restart: "always"
 
+  ragas-evaluator:
+    image: ragas-evaluator:latest
+    labels:
+      kompose.service.type: ClusterIP
+    ports:
+      - 8002:8000  # RAGAS evaluator API (external:internal)
+    environment:
+      # Use Stanford AI API for LLM, Ollama for embeddings
+      - "OPENAI_API_KEY=${STANFORD_API_KEY}"
+      - "OPENAI_BASE_URL=${STANFORD_BASE_URL}"
+      - "DEFAULT_MODEL=gpt-4.omini"
+      - "ALTERNATIVE_MODELS=claude-3-7-sonnet,deepseek-r1,gpt-4,o1"
+      - "DEFAULT_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2"
+      - "EMBEDDING_PROVIDER=ollama"
+      - "OLLAMA_BASE_URL=http://ollama:11434"
+      - "EMBEDDING_MODEL=nomic-embed-text:latest"
+      - "BATCH_SIZE=10"
+      - "MAX_WORKERS=4"
+      - "LOG_LEVEL=INFO"
+    env_file:
+      - .env # Use local .env file
+    volumes:
+      - ragas_config:/app/config
+    restart: "always"
+    depends_on:
+      - ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   ouragboros:
     build: .
     image: ouragboros:local # Local image tag
@@ -78,6 +110,8 @@ services:
       - "GOOGLE_API_KEY=${GOOGLE_API_KEY}"
       - "STANFORD_API_KEY=${STANFORD_API_KEY}"
       - "STANFORD_BASE_URL=${STANFORD_BASE_URL}"
+      # Query logging service configuration
+      - "RAGAS_BASE_URL=http://ragas-evaluator:8000"
     env_file:
       - .env # Use local .env file
     volumes:
@@ -87,6 +121,7 @@ services:
       - ollama
       - opensearch
       - qdrant
+      - ragas-evaluator
     develop:
       watch:
         - action: sync
@@ -104,3 +139,4 @@ volumes:
   ollama_data:
   qdrant_data:
   ouragboros_models:
+  ragas_config:

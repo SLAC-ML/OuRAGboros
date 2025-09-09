@@ -40,8 +40,8 @@ services:
       kompose.service.type: ClusterIP
       kompose.volume.size: 2Gi
     ports:
-      - 6333:6333  # HTTP API
-      - 6334:6334  # gRPC API (optional, for high performance)
+      - 6333:6333 # HTTP API
+      - 6334:6334 # gRPC API (optional, for high performance)
     environment:
       - QDRANT__STORAGE__STORAGE_PATH=/qdrant/storage
       - QDRANT__SERVICE__HTTP_PORT=6333
@@ -49,7 +49,7 @@ services:
       - QDRANT__LOG_LEVEL=INFO
       # Optimizations for concurrent performance
       - QDRANT__SERVICE__MAX_REQUEST_SIZE_MB=32
-      - QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS=0  # Use all available CPUs
+      - QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS=0 # Use all available CPUs
     volumes:
       - qdrant_data:/qdrant/storage
     restart: "always"
@@ -60,6 +60,39 @@ services:
     #        - driver: nvidia
     #          count: ${NVIDIA_GPUS}
     #  capabilities: [gpu]
+  ragas-evaluator:
+    image: slacml/ragas-evaluator:latest
+    labels:
+      kompose.service.type: ClusterIP
+    ports:
+      - 8002:8000 # RAGAS evaluator API (external:internal)
+    environment:
+      # Use Stanford AI API for evaluation
+      - "OPENAI_API_KEY=${STANFORD_API_KEY}"
+      - "OPENAI_BASE_URL=${STANFORD_BASE_URL}"
+      - "OPENAI_API_TYPE=azure"
+      - "OPENAI_API_VERSION=2023-05-15"
+      - "DEFAULT_MODEL=gpt-4.omini"
+      - "ALTERNATIVE_MODELS=claude-3-7-sonnet,deepseek-r1,gpt-4,o1"
+      - "DEFAULT_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2"
+      - "EMBEDDING_PROVIDER=ollama"
+      - "OLLAMA_BASE_URL=http://ollama:11434"
+      - "EMBEDDING_MODEL=nomic-embed-text:latest"
+      - "BATCH_SIZE=10"
+      - "MAX_WORKERS=4"
+      - "LOG_LEVEL=INFO"
+    env_file:
+      - .local.env
+    volumes:
+      - ragas_config:/app/config
+    restart: "always"
+    depends_on:
+      - ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
   ouragboros:
     build: .
     image: slacml/ouragboros:async-fix
@@ -91,6 +124,8 @@ services:
       - "GOOGLE_API_KEY=${GOOGLE_API_KEY}"
       - "STANFORD_API_KEY=${STANFORD_API_KEY}"
       - "STANFORD_BASE_URL=${STANFORD_BASE_URL}"
+      # Query logging service configuration
+      - "RAGAS_BASE_URL=http://ragas-evaluator:8000"
     env_file:
       - .local.env
     volumes:
@@ -100,6 +135,7 @@ services:
       - ollama
       - opensearch
       - qdrant
+      - ragas-evaluator
     #deploy:
     #  resources:
     #    reservations:
@@ -124,3 +160,4 @@ volumes:
   ollama_data:
   ouragboros_models:
   qdrant_data:
+  ragas_config:
