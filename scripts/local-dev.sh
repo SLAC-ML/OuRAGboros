@@ -29,6 +29,7 @@ show_help() {
     echo "  restart     - Rebuild and restart ouragboros"
     echo "  logs        - Show service logs"
     echo "  clean       - Stop services and clean up containers/images"
+    echo "  health      - Check health of all services"
     echo ""
     echo "Options:"
     echo "  --no-cache  - Build without Docker cache"
@@ -41,11 +42,13 @@ show_help() {
     echo "  $0 logs               # Show logs for debugging"
     echo ""
     echo "Services will be available at:"
-    echo "  • Streamlit UI: http://localhost:8501"
-    echo "  • REST API:     http://localhost:8001"
-    echo "  • OpenSearch:   http://localhost:9200"
-    echo "  • Qdrant:       http://localhost:6333"
-    echo "  • Ollama:       http://localhost:11434"
+    echo "  • Streamlit UI:    http://localhost:8501"
+    echo "  • REST API:        http://localhost:8001"
+    echo "  • Query Logs:      query_logs_viewer.html (set endpoint to localhost:8001)"
+    echo "  • RAGAS Evaluator: http://localhost:8002"
+    echo "  • OpenSearch:      http://localhost:9200"
+    echo "  • Qdrant:          http://localhost:6333"
+    echo "  • Ollama:          http://localhost:11434"
 }
 
 # Check prerequisites
@@ -114,11 +117,13 @@ show_service_status() {
     docker compose -f "$COMPOSE_FILE" ps
     echo ""
     echo -e "${GREEN}🌐 Access URLs:${NC}"
-    echo "  • Streamlit UI: http://localhost:8501"
-    echo "  • REST API:     http://localhost:8001"
-    echo "  • OpenSearch:   http://localhost:9200"
-    echo "  • Qdrant:       http://localhost:6333"
-    echo "  • Ollama:       http://localhost:11434"
+    echo "  • Streamlit UI:    http://localhost:8501"
+    echo "  • REST API:        http://localhost:8001"
+    echo "  • Query Logs:      query_logs_viewer.html (set endpoint to localhost:8001)"
+    echo "  • RAGAS Evaluator: http://localhost:8002"
+    echo "  • OpenSearch:      http://localhost:9200"
+    echo "  • Qdrant:          http://localhost:6333"
+    echo "  • Ollama:          http://localhost:11434"
     echo ""
 }
 
@@ -134,6 +139,72 @@ stop_services() {
 show_logs() {
     echo -e "${BLUE}📋 Service logs (press Ctrl+C to exit):${NC}"
     docker compose -f "$COMPOSE_FILE" logs -f
+}
+
+# Health check
+check_health() {
+    echo -e "${BLUE}🏥 Checking service health...${NC}"
+    echo ""
+    
+    # Check OuRAGboros REST API
+    echo -n "• REST API (port 8001): "
+    if curl -s http://localhost:8001/docs > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Healthy${NC}"
+    else
+        echo -e "${RED}❌ Unhealthy${NC}"
+    fi
+    
+    # Check OuRAGboros Logging API
+    echo -n "• Logging API (port 8001): "
+    if curl -s http://localhost:8001/logs/health > /dev/null 2>&1; then
+        health_response=$(curl -s http://localhost:8001/logs/health)
+        if echo "$health_response" | grep -q "healthy"; then
+            echo -e "${GREEN}✅ Healthy${NC}"
+        else
+            echo -e "${YELLOW}⚠️ Partial (OpenSearch may be unavailable)${NC}"
+        fi
+    else
+        echo -e "${RED}❌ Unhealthy (may need container rebuild)${NC}"
+    fi
+    
+    # Check RAGAS Evaluator
+    echo -n "• RAGAS Evaluator (port 8002): "
+    if curl -s http://localhost:8002/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Healthy${NC}"
+    else
+        echo -e "${RED}❌ Unhealthy${NC}"
+    fi
+    
+    # Check OpenSearch
+    echo -n "• OpenSearch (port 9200): "
+    if curl -s http://localhost:9200/_cluster/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Healthy${NC}"
+    else
+        echo -e "${RED}❌ Unhealthy${NC}"
+    fi
+    
+    # Check Qdrant
+    echo -n "• Qdrant (port 6333): "
+    if curl -s http://localhost:6333/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Healthy${NC}"
+    else
+        echo -e "${RED}❌ Unhealthy${NC}"
+    fi
+    
+    # Check Ollama
+    echo -n "• Ollama (port 11434): "
+    if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Healthy${NC}"
+    else
+        echo -e "${RED}❌ Unhealthy${NC}"
+    fi
+    
+    echo ""
+    echo -e "${BLUE}💡 Tips:${NC}"
+    echo "  • If REST API is healthy but Logging API isn't, rebuild with: $0 restart"
+    echo "  • If RAGAS Evaluator is unhealthy, check logs: $0 logs"
+    echo "  • Open query_logs_viewer.html in browser to view logged queries"
+    echo ""
 }
 
 # Clean up
@@ -196,6 +267,10 @@ while [[ $# -gt 0 ]]; do
             COMMAND="clean"
             shift
             ;;
+        health)
+            COMMAND="health"
+            shift
+            ;;
         --no-cache)
             NO_CACHE=true
             shift
@@ -242,6 +317,9 @@ case $COMMAND in
         ;;
     clean)
         cleanup
+        ;;
+    health)
+        check_health
         ;;
     *)
         # Default: build and start
