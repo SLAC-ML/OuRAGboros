@@ -17,6 +17,7 @@ data:
   PREFER_OPENSEARCH: 'false'
   PREFER_QDRANT: 'true'
   QDRANT_BASE_URL: 'http://qdrant:6333'
+  RAGAS_BASE_URL: 'http://ragas-evaluator:8000'
   SENTENCE_TRANSFORMERS_HOME: 'models'
 kind: ConfigMap
 metadata:
@@ -514,7 +515,12 @@ spec:
                 configMapKeyRef:
                   key: QDRANT_BASE_URL
                   name: kubernetes-env
-          image: slacml/ouragboros:25.08.30
+            - name: RAGAS_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: RAGAS_BASE_URL
+                  name: kubernetes-env
+          image: slacml/ouragboros:25.09.09
           name: ouragboros
           resources:
             requests:
