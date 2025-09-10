@@ -94,8 +94,8 @@ services:
       timeout: 10s
       retries: 3
   ouragboros:
-    build: .
-    image: slacml/ouragboros:async-fix
+    #build: .
+    image: slacml/ouragboros:logging-fix
     labels:
       kompose.service.expose: "true"
       kompose.volume.size: 3Gi

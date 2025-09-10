@@ -611,15 +611,15 @@
               <div class="stat-label">Total Queries</div>
             </div>
             <div class="stat-item">
-              <div class="stat-value">${stats.avg_response_time.toFixed(2)}s</div>
+              <div class="stat-value">${(stats.avg_response_time || 0).toFixed(2)}s</div>
               <div class="stat-label">Avg Response Time</div>
             </div>
             <div class="stat-item">
-              <div class="stat-value">${stats.avg_ragas_scores.faithfulness.toFixed(2)}</div>
+              <div class="stat-value">${(stats.avg_ragas_scores?.faithfulness || 0).toFixed(2)}</div>
               <div class="stat-label">Avg Faithfulness</div>
             </div>
             <div class="stat-item">
-              <div class="stat-value">${stats.avg_ragas_scores.answer_relevancy.toFixed(2)}</div>
+              <div class="stat-value">${(stats.avg_ragas_scores?.answer_relevancy || 0).toFixed(2)}</div>
               <div class="stat-label">Avg Relevancy</div>
             </div>
             <div class="stat-item">

@@ -222,27 +222,27 @@ async def ask_stream(req: QueryRequest):
             # NON-BLOCKING LOGGING - This happens after user gets their response
             total_time = time.time() - start_time
             
-            # Only log if we have meaningful data
-            if final_answer and req.use_rag and rag_docs:
+            # Log ALL requests for debugging and monitoring purposes
+            if True:  # Always log, regardless of success/failure/completeness
                 try:
-                    # Create log entry
+                    # Create log entry with safe defaults for missing data
                     log_entry = QueryLogEntry.create_from_api_data(
-                        query=req.query,
-                        embedding_model=req.embedding_model,
-                        llm_model=req.llm_model,
-                        knowledge_base=req.knowledge_base,
-                        score_threshold=req.score_threshold,
-                        max_documents=req.max_documents,
-                        use_opensearch=req.use_opensearch,
-                        use_qdrant=req.use_qdrant,
-                        prompt_template=req.prompt,
-                        rag_docs=rag_docs,
-                        final_answer=final_answer,
-                        retrieval_time=retrieval_time,
-                        response_time=response_time,
+                        query=req.query or "",
+                        embedding_model=req.embedding_model or "unknown",
+                        llm_model=req.llm_model or "unknown", 
+                        knowledge_base=req.knowledge_base or "default",
+                        score_threshold=req.score_threshold or 0.0,
+                        max_documents=req.max_documents or 0,
+                        use_opensearch=req.use_opensearch or False,
+                        use_qdrant=req.use_qdrant or False,
+                        prompt_template=req.prompt or "",
+                        rag_docs=rag_docs or [],
+                        final_answer=final_answer or "ERROR: No response generated",
+                        retrieval_time=retrieval_time or 0.0,
+                        response_time=response_time or 0.0,
                         total_time=total_time,
-                        embedding_time=embedding_time,
-                        token_count=token_count
+                        embedding_time=embedding_time or 0.0,
+                        token_count=token_count or 0
                     )
                     
                     # Queue for background logging (non-blocking)
