@@ -1,0 +1,31 @@
+{
+  "metadata": {
+    "timestamp": "2025-09-10T13:25:16.726549",
+    "base_model": "thellert/physbert_cased",
+    "finetuned_model": "models/physbert-physics-finetuned",
+    "device": "mps",
+    "memory_optimized": true,
+    "total_tests": 5,
+    "improvements": 5,
+    "improvement_rate": 100.0
+  },
+  "test_results": [
+    {
+      "test_case": 1,
+      "triplet_id": "physics_triplet_9",
+      "query": "What is a ``minimum-ionizing particle\" (mip)?",
+      "positive": "The stopping power functions are characterized by broad minima. In practical cases, most relativistic particles (e.g., cosmic-ray muons) have mean energy loss rates close to the minimum; they are ``minimum-ionizing particles,\" or mip's.",
+      "negative": "For protons of less than several hundred eV, non-ionizing nuclear recoil energy loss dominates the total energy loss.",
+      "base_model": {
+        "positive_similarity": 0.26234567165374756,
+        "negative_similarity": 0.2421799749135971,
+        "margin": 0.02016569674015045
+      },
+      "finetuned_model": {
+        "positive_similarity": 0.44854986667633057,
+        "negative_similarity": 0.17815886437892914,
+        "margin": 0.27039098739624023
+      },
+      "comparison": {
+        "improvement": 0.250225305557251,
+        "is_improvement": 

@@ -1,0 +1,53 @@
+# PhysBERT Fine-tuning Configuration
+# Following RAGAS framework configuration-driven patterns
+
+model:
+  base_model: "thellert/physbert_cased"  # Pre-trained PhysBERT model from HuggingFace
+  download_cache_dir: "models/cache"     # Local cache for downloaded models
+
+data:
+  path: "data/physics_triplets_st.json"
+  train_test_split: 0.8                  # 80% train, 20% test
+  validation:
+    min_text_length: 10
+    max_text_length: 512
+
+augmentation:
+  enabled: true
+  negative_shuffle_factor: 2             # Number of shuffled negatives per original
+  hard_negative_factor: 1                # Number of hard negatives per original
+
+training:
+  batch_size: 8                          # Reduced for memory efficiency
+  epochs: 3                              # Conservative for fine-tuning
+  learning_rate: 2e-5                    # Standard for transformer fine-tuning
+  warmup_ratio: 0.1                      # 10% warmup steps
+  weight_decay: 0.01
+  output_path: "models/physbert-physics-finetuned"
+  save_steps: 100
+  eval_steps: 50
+  
+  triplet_loss:
+    distance_metric: "COSINE"            # COSINE, EUCLIDEAN, or DOT_PRODUCT
+    margin: 0.5                          # Triplet margin for loss calculation
+
+evaluation:
+  enabled: true
+  test_ratio: 0.2                        # Fraction of data for evaluation
+  metrics:
+    - "triplet_accuracy"
+    - "cosine_similarity" 
+  comparison:
+    enabled: true                        # Compare with base model
+    sample_queries: 5                    # Number of test queries for comparison
+
+logging:
+  level: "INFO"
+  save_logs: true
+  log_file: "logs/physbert_training.log"
+
+# Environment variable overrides (following RAGAS patterns)
+# PHYSBERT_BASE_MODEL: Override base model
+# PHYSBERT_BATCH_SIZE: Override batch size  
+# PHYSBERT_EPOCHS: Override number of epochs
+# PHYSBERT_OUTPUT_PATH: Override output directory

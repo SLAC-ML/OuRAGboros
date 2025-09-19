@@ -1,0 +1,31 @@
+{
+  "metadata": {
+    "timestamp": "2025-09-10T13:25:19.427924",
+    "base_model": "thellert/physbert_cased",
+    "finetuned_model": "/Users/sandeshs/Documents/Projects/LLMTest/tests/ouragboros/models/physbert-physics-finetuned",
+    "device": "mps",
+    "memory_optimized": true,
+    "total_tests": 5,
+    "improvements": 5,
+    "improvement_rate": 100.0
+  },
+  "test_results": [
+    {
+      "test_case": 1,
+      "triplet_id": "physics_triplet_40",
+      "query": "How does the minimum ionization value change with the atomic number Z of the absorber?",
+      "positive": "Except in hydrogen, particles with the same velocity have similar rates of energy loss in different materials, although there is a slow decrease in the rate of energy loss with increasing Z. Figure 34.3 confirms this trend.",
+      "negative": "Figure 34.14 shows that the electron critical energy for the chemical elements decreases significantly with Z.",
+      "base_model": {
+        "positive_similarity": 0.1787911057472229,
+        "negative_similarity": 0.2567775249481201,
+        "margin": -0.07798641920089722
+      },
+      "finetuned_model": {
+        "positive_similarity": 0.6745069026947021,
+        "negative_similarity": -0.06756900250911713,
+        "margin": 0.7420759201049805
+      },
+      "comparison": {
+        "improvement": 0.8200623393058777,
+        "is_improvement": 
