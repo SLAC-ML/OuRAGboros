@@ -109,26 +109,141 @@ def clear_embedding_cache() -> None:
         _in_memory_vector_stores.clear()
 
 
+def get_finetuned_models() -> list[dict]:
+    """
+    Discover fine-tuned models in the finetuned directory.
+
+    :return: List of model info dictionaries with 'path', 'name', and 'display_name'
+    """
+    finetuned_models = []
+    finetuned_dir = os.path.join(config.huggingface_model_cache_folder, 'finetuned')
+
+    if not os.path.exists(finetuned_dir):
+        return finetuned_models
+
+    try:
+        for model_name in os.listdir(finetuned_dir):
+            model_path = os.path.join(finetuned_dir, model_name)
+
+            # Skip hidden files and non-directories
+            if model_name.startswith('.') or not os.path.isdir(model_path):
+                continue
+
+            # Validate model directory (check for required files)
+            if _is_valid_model_directory(model_path):
+                # Create friendly display name
+                display_name = _get_model_display_name(model_name, model_path)
+
+                finetuned_models.append({
+                    'path': model_path,
+                    'name': model_name,
+                    'display_name': display_name
+                })
+
+    except Exception as e:
+        print(f"Warning: Error scanning finetuned models directory: {e}")
+
+    # Sort by name for consistent ordering
+    return sorted(finetuned_models, key=lambda x: x['name'])
+
+
+def _is_valid_model_directory(model_path: str) -> bool:
+    """
+    Check if a directory contains a valid HuggingFace model.
+
+    :param model_path: Path to the model directory
+    :return: True if valid, False otherwise
+    """
+    required_files = ['config.json']
+
+    # Check for model weights (either .bin or .safetensors)
+    weight_files = [
+        'pytorch_model.bin',
+        'model.safetensors',
+        'pytorch_model.safetensors'
+    ]
+
+    try:
+        files_in_dir = os.listdir(model_path)
+
+        # Check required files
+        for required_file in required_files:
+            if required_file not in files_in_dir:
+                return False
+
+        # Check for at least one weight file
+        has_weights = any(weight_file in files_in_dir for weight_file in weight_files)
+        if not has_weights:
+            return False
+
+        return True
+
+    except Exception:
+        return False
+
+
+def _get_model_display_name(model_name: str, model_path: str) -> str:
+    """
+    Generate a friendly display name for a model.
+
+    :param model_name: Directory name of the model
+    :param model_path: Full path to model directory
+    :return: User-friendly display name
+    """
+    # Try to load metadata file for custom display name
+    metadata_file = os.path.join(model_path, 'model_metadata.json')
+    if os.path.exists(metadata_file):
+        try:
+            import json
+            with open(metadata_file, 'r') as f:
+                metadata = json.load(f)
+                if 'display_name' in metadata:
+                    return metadata['display_name']
+        except Exception:
+            pass  # Fall back to automatic naming
+
+    # Generate display name from directory name
+    display_name = model_name.replace('-', ' ').replace('_', ' ')
+
+    # Capitalize words
+    display_name = ' '.join(word.capitalize() for word in display_name.split())
+
+    # Add "Fine-tuned" suffix if not already present
+    if 'fine' not in display_name.lower() and 'tuned' not in display_name.lower():
+        display_name += ' (Fine-tuned)'
+
+    return display_name
+
+
 def get_available_embeddings() -> list[str]:
     """
-    Retrieves available string embedding models.
+    Retrieves available string embedding models, including multiple fine-tuned models.
 
-    :return:
+    :return: List of model identifiers
     """
     ollama_models = langchain_llms.get_available_llms()
     huggingface_models = [
         f'huggingface:{config.huggingface_default_embedding_model}',
     ]
 
-    # If we have a local model trained, we prioritize that one.
-    #
-    finetuned_model_path = os.path.join(
+    # Add all fine-tuned models from directory scanning
+    finetuned_models = get_finetuned_models()
+    for model_info in finetuned_models:
+        model_identifier = f'huggingface:{model_info["path"]}'
+        huggingface_models.insert(0, model_identifier)
+
+    # Legacy support: check for single fine-tuned model via environment variable
+    # This maintains backward compatibility with existing deployments
+    legacy_finetuned_path = os.path.join(
         config.huggingface_model_cache_folder,
         config.huggingface_finetuned_embedding_model
     )
 
-    if os.path.exists(finetuned_model_path):
-        huggingface_models.insert(0, f'huggingface:{finetuned_model_path}')
+    if os.path.exists(legacy_finetuned_path):
+        legacy_identifier = f'huggingface:{legacy_finetuned_path}'
+        # Only add if not already included from directory scanning
+        if legacy_identifier not in huggingface_models:
+            huggingface_models.insert(0, legacy_identifier)
 
     return [*huggingface_models, *ollama_models]
 

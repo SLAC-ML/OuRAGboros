@@ -3,7 +3,6 @@
 apiVersion: v1
 data:
   HUGGINGFACE_EMBEDDING_MODEL_DEFAULT: 'thellert/physbert_cased'
-  HUGGINGFACE_FINETUNED_EMBEDDING_MODEL: 'ouragboros_finetuned'
   OLLAMA_BASE_URL: 'http://ollama:11434'
   OLLAMA_MODEL_DEFAULT: 'ollama:llama3.1'
   OPENAI_API_KEY: ''
@@ -53,7 +52,11 @@ spec:
     requests:
       storage: 1Gi
 ---
-# Source: docker-compose/templates/ouragboros-models-persistentvolumeclaim.yaml
+# Persistent volume for HuggingFace models cache and fine-tuned models
+# This volume stores both downloaded models and custom fine-tuned models
+# Directory structure:
+#   - /app/models/models--{org}--{model}/ (HuggingFace cache format)
+#   - /app/models/finetuned/{model_name}/ (fine-tuned models directory)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -65,7 +68,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 3Gi
+      storage: 20Gi  # Increased to accommodate multiple fine-tuned models
 ---
 # Source: docker-compose/templates/qdrant-data-persistentvolumeclaim.yaml
 apiVersion: v1

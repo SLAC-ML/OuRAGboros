@@ -154,6 +154,48 @@ Basic testing scripts for validating core functionality:
 - **test-local.sh**: Local development testing
 - **test-embedding-cache.sh**: Embedding cache performance testing
 
+## 🤖 Model Management
+
+### `manage-models.sh`
+
+Comprehensive utility for managing fine-tuned embedding models in both local and Kubernetes environments.
+
+**Usage:**
+```bash
+./scripts/manage-models.sh <command> [arguments]
+```
+
+**Commands:**
+- `list` - List all discovered fine-tuned models
+- `validate <model_name>` - Validate a specific model directory
+- `create <model_name>` - Create a new model directory structure
+- `upload <model_name>` - Upload model to Kubernetes (requires kubectl)
+- `metadata <model_name>` - Create metadata file for a model
+- `test` - Test model discovery functionality
+
+**Examples:**
+```bash
+# List all available models
+./scripts/manage-models.sh list
+
+# Validate a specific model
+./scripts/manage-models.sh validate physics-expert
+
+# Create new model directory
+./scripts/manage-models.sh create chemistry-v2
+
+# Upload to Kubernetes
+./scripts/manage-models.sh upload physics-expert
+```
+
+**Features:**
+- ✅ **Model discovery**: Automatically scan and validate fine-tuned models
+- ✅ **Directory management**: Create proper model directory structures
+- ✅ **Metadata support**: Generate display names and model information
+- ✅ **Kubernetes integration**: Upload models directly to running deployments
+- ✅ **Validation**: Ensure models have required files (config.json, weights)
+- ✅ **Multi-format support**: Handle .bin and .safetensors weight files
+
 ## 🚀 Deployment Utilities
 
 ### `deploy-qdrant.sh`

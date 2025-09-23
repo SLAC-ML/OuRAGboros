@@ -115,7 +115,7 @@ services:
     env_file:
       - .env # Use local .env file
     volumes:
-      - ouragboros_models:/app/models
+      - ./models:/app/models  # Bind mount for local testing
     restart: "always"
     depends_on:
       - ollama
@@ -138,5 +138,4 @@ volumes:
   opensearch_data:
   ollama_data:
   qdrant_data:
-  ouragboros_models:
   ragas_config:
