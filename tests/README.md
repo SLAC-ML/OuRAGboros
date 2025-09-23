@@ -5,10 +5,11 @@ This directory contains test scripts for various OuRAGboros components.
 ## Test Files
 
 - `test_qdrant_basic.py` - Basic Qdrant functionality tests
-- `test_qdrant_comprehensive.py` - Comprehensive Qdrant integration tests  
+- `test_qdrant_comprehensive.py` - Comprehensive Qdrant integration tests
 - `test_qdrant_local.py` - Local Qdrant testing
 - `test_qdrant_simple.py` - Simple Qdrant connection tests
 - `test_qdrant_ui_integration.py` - UI integration tests with Qdrant
+- `test_logging.py` - Auto-log and eval feature testing
 
 ## Running Tests
 
@@ -20,6 +21,7 @@ Make sure your services are running first:
 
 # Then run tests
 python tests/test_qdrant_ui_integration.py
+python tests/test_logging.py
 ```
 
 ## Environment Setup

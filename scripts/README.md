@@ -148,12 +148,29 @@ Use this tool to:
 
 ## 🧪 Testing Utilities
 
-### `test-local.sh`, `test-embedding-cache.sh`, `test-concurrent.sh`
+### `test-local.sh`, `test-embedding-cache.sh`
 
-Various testing scripts for validating functionality:
+Basic testing scripts for validating core functionality:
 - **test-local.sh**: Local development testing
-- **test-embedding-cache.sh**: Embedding cache performance testing  
-- **test-concurrent.sh**: Concurrent request testing
+- **test-embedding-cache.sh**: Embedding cache performance testing
+
+## 🚀 Deployment Utilities
+
+### `deploy-qdrant.sh`
+
+Kubernetes deployment script for OuRAGboros with Qdrant vector store configuration.
+
+**Usage:**
+```bash
+./scripts/deploy-qdrant.sh
+```
+
+**Features:**
+- Automatic namespace creation
+- Stanford AI secret deployment (if available)
+- Qdrant overlay configuration deployment
+
+> **Note**: For comprehensive benchmarking and performance testing tools, see the `benchmark/` directory.
 
 ---
 
