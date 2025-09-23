@@ -284,8 +284,15 @@ async def answer_query_stream(
         # 2. Build system message
         msg_start = time.time()
         system_msg = make_system_message(prompt_template, docs, user_files or [])
+
+        # 3. if there *is* prior chat‐history, stitch it in
+        if history:
+            # turn [{"role":"user","content":"…"}, …] into text
+            hist_text = "\n".join(f"{m['role']}: {m['content']}" for m in history)
+            system_msg += "\n\nConversation history:\n" + hist_text
+
         msg_time = time.time() - msg_start
-        timing_logger.info(f"📝 STREAM MESSAGE BUILD: {msg_time:.3f}s, msg_len={len(system_msg)}")
+        timing_logger.info(f"📝 STREAM MESSAGE BUILD: {msg_time:.3f}s, msg_len={len(system_msg)}, history_items={len(history or [])}")
 
         # 3. Model loading
         yield {"type": "status", "message": "Loading models..."}
