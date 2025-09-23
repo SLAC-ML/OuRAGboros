@@ -47,6 +47,47 @@ patches:
           limits:
             cpu: 32000m
             memory: 128Gi
+      - op: add
+        path: /spec/template/spec/initContainers
+        value:
+          - name: model-puller
+            image: ollama/ollama:0.5.11
+            command: ["/bin/sh"]
+            args:
+              - -c
+              - |
+                # Start ollama in background
+                ollama serve &
+                OLLAMA_PID=$!
+
+                # Wait for ollama to be ready (simple wait)
+                echo "Waiting for Ollama to start..."
+                sleep 10
+
+                # Pull required models
+                echo "Pulling nomic-embed-text model..."
+                ollama pull nomic-embed-text:latest
+
+                echo "Pulling llama2 model..."
+                ollama pull llama2:latest
+
+                echo "Model pulling completed"
+
+                # Stop ollama
+                kill $OLLAMA_PID
+            volumeMounts:
+              - mountPath: /root/.ollama
+                name: ollama-data
+            env:
+              - name: OLLAMA_KEEP_ALIVE
+                value: 5m
+            resources:
+              requests:
+                cpu: 16000m
+                memory: 64Gi
+              limits:
+                cpu: 32000m
+                memory: 128Gi
   
   - target:
       kind: Deployment
