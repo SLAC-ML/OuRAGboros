@@ -20,6 +20,7 @@ import lib.streamlit.session_state as ss
 import lib.langchain.embeddings as langchain_embeddings
 import lib.langchain.opensearch as langchain_opensearch
 import lib.langchain.qdrant as langchain_qdrant
+import lib.langchain.llm as langchain_llm
 
 # Configure logging for timing
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -616,7 +617,37 @@ async def query_logs_health():
         }
     except Exception as e:
         return {
-            "status": "unhealthy", 
+            "status": "unhealthy",
             "error": str(e),
             "opensearch_connected": False
         }
+
+
+@app.get("/models/embeddings")
+def get_embedding_models():
+    """Get list of available embedding models including fine-tuned models"""
+    try:
+        models = langchain_embeddings.get_available_embeddings()
+        return {"models": models}
+    except Exception as e:
+        return {"error": str(e), "models": []}
+
+
+@app.get("/models/llms")
+def get_llm_models():
+    """Get list of available LLM models"""
+    try:
+        models = langchain_llm.get_available_llms()
+        return {"models": models}
+    except Exception as e:
+        return {"error": str(e), "models": []}
+
+
+@app.get("/models/finetuned")
+def get_finetuned_models():
+    """Get detailed information about fine-tuned embedding models"""
+    try:
+        models = langchain_embeddings.get_finetuned_models()
+        return {"models": models}
+    except Exception as e:
+        return {"error": str(e), "models": []}
