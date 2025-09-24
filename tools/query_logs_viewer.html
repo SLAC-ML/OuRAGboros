@@ -135,6 +135,11 @@
         font-weight: bold;
       }
 
+      .logs-table th:nth-child(3),
+      .logs-table th:nth-child(4) {
+        min-width: 120px;
+      }
+
       .logs-table td {
         padding: 8px;
         border-bottom: 1px solid #eee;
@@ -283,31 +288,72 @@
           <label for="fromDate">From Date:</label>
           <input type="datetime-local" id="fromDate" />
         </div>
-        
+
         <div class="form-group">
           <label for="toDate">To Date:</label>
           <input type="datetime-local" id="toDate" />
         </div>
-        
+
+        <div class="form-group">
+          <label for="vectorStore">Vector Store:</label>
+          <select id="vectorStore">
+            <option value="">All</option>
+            <option value="qdrant">Qdrant</option>
+            <option value="opensearch">OpenSearch</option>
+            <option value="inmemory">In-Memory</option>
+          </select>
+        </div>
+
         <div class="form-group">
           <label for="knowledgeBase">Knowledge Base:</label>
           <select id="knowledgeBase">
-            <option value="">All</option>
-            <option value="default">default</option>
+            <option value="">Loading...</option>
+          </select>
+          <button
+            type="button"
+            onclick="refreshFilterOptions()"
+            style="margin-top: 5px; font-size: 12px; padding: 5px 10px; width: 100%"
+          >
+            Refresh Filters
+          </button>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <div class="form-group">
+          <label for="embeddingModel">Embedding Model:</label>
+          <select id="embeddingModel">
+            <option value="">Loading...</option>
           </select>
         </div>
-        
+
         <div class="form-group">
           <label for="llmModel">LLM Model:</label>
           <select id="llmModel">
-            <option value="">All</option>
+            <option value="">Loading...</option>
           </select>
+        </div>
+
+        <div class="form-group">
+          <label for="status">Status:</label>
+          <select id="status">
+            <option value="">All</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="minScore">Min RAGAS Score:</label>
+          <input type="number" id="minScore" min="0" max="1" step="0.1" placeholder="0.0-1.0" />
         </div>
       </div>
 
       <div style="display: flex; gap: 10px; align-items: end;">
         <button onclick="searchLogs()">Search</button>
         <button onclick="clearFilters()" class="secondary">Clear Filters</button>
+        <button onclick="resetPageState(); refreshFilterOptions();" class="secondary" title="Reset page if experiencing display issues">Reset Page</button>
         <span style="font-size: 14px; color: #666;">
           Results per page: 
           <select id="pageSize" style="width: 70px; margin-left: 5px;">
@@ -333,7 +379,8 @@
           <tr>
             <th>Time</th>
             <th>Query</th>
-            <th>Model</th>
+            <th>LLM Model</th>
+            <th>Embedding Model</th>
             <th>KB</th>
             <th>Docs</th>
             <th>Times</th>
@@ -357,14 +404,20 @@
       // Initialize page
       window.onload = function() {
         checkHealth();
+        refreshFilterOptions();
         searchLogs();
-        
+
         // Set default date range (last 7 days)
         const now = new Date();
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         document.getElementById('toDate').value = now.toISOString().slice(0, 16);
         document.getElementById('fromDate').value = weekAgo.toISOString().slice(0, 16);
       };
+
+      // Refresh filter options on vector store change
+      document.getElementById('vectorStore').addEventListener('change', function() {
+        refreshKnowledgeBases();
+      });
 
       async function checkHealth() {
         const endpoint = document.getElementById('endpoint').value;
@@ -387,19 +440,179 @@
         }
       }
 
+      async function refreshFilterOptions() {
+        await Promise.all([
+          refreshKnowledgeBases(),
+          refreshEmbeddingModels(),
+          refreshLLMModels()
+        ]);
+      }
+
+      async function refreshKnowledgeBases() {
+        const endpoint = document.getElementById('endpoint').value;
+        const vectorStore = document.getElementById('vectorStore').value;
+        const kbSelect = document.getElementById('knowledgeBase');
+        const currentValue = kbSelect.value;
+
+        try {
+          const response = await fetch(`${endpoint}/kb/list`);
+          const data = await response.json();
+
+          kbSelect.innerHTML = '<option value="">All</option>';
+
+          let kbList = [];
+          if (vectorStore === 'qdrant') {
+            kbList = data.qdrant || [];
+          } else if (vectorStore === 'opensearch') {
+            kbList = data.opensearch || [];
+          } else if (vectorStore === 'inmemory') {
+            kbList = data.in_memory || [];
+          } else {
+            // Show all when "All" is selected
+            kbList = [...(data.qdrant || []), ...(data.opensearch || []), ...(data.in_memory || [])];
+            // Remove duplicates
+            kbList = [...new Set(kbList)];
+          }
+
+          // Add "default" if not in list
+          if (!kbList.includes('default')) {
+            kbList.unshift('default');
+          }
+
+          kbList.forEach(kb => {
+            const option = document.createElement('option');
+            option.value = kb;
+            option.textContent = kb;
+            kbSelect.appendChild(option);
+          });
+
+          // Restore previous selection
+          if (kbList.includes(currentValue)) {
+            kbSelect.value = currentValue;
+          }
+        } catch (error) {
+          console.error('Error loading knowledge bases:', error);
+          kbSelect.innerHTML = '<option value="">All</option><option value="default">default</option>';
+        }
+      }
+
+      async function refreshEmbeddingModels() {
+        const endpoint = document.getElementById('endpoint').value;
+        const embeddingSelect = document.getElementById('embeddingModel');
+        const currentValue = embeddingSelect.value;
+
+        try {
+          const response = await fetch(`${endpoint}/models/embeddings`);
+          const data = await response.json();
+
+          embeddingSelect.innerHTML = '<option value="">All</option>';
+
+          if (data.models && Array.isArray(data.models)) {
+            data.models.forEach(model => {
+              const option = document.createElement('option');
+              option.value = model;
+
+              // Create friendly display name
+              let displayName = model;
+              if (model.includes('finetuned/')) {
+                const modelName = model.split('/').pop();
+                displayName = `${modelName} (Fine-tuned)`;
+              } else if (model.includes('thellert/physbert_cased')) {
+                displayName = 'PhysBERT (Base Model)';
+              } else if (model.includes('sentence-transformers')) {
+                const modelPart = model.split(':')[1] || model;
+                displayName = modelPart.split('/').pop();
+              } else if (model.startsWith('ollama:') && model.includes('embed')) {
+                displayName = `Ollama ${model.split(':')[1]}`;
+              } else if (model.startsWith('stanford:') ||
+                        (model.startsWith('ollama:') && !model.includes('embed'))) {
+                // Skip LLM models
+                return;
+              }
+
+              option.textContent = displayName;
+              embeddingSelect.appendChild(option);
+            });
+          }
+
+          // Restore previous selection
+          if (currentValue && data.models?.includes(currentValue)) {
+            embeddingSelect.value = currentValue;
+          }
+        } catch (error) {
+          console.error('Error loading embedding models:', error);
+          embeddingSelect.innerHTML = '<option value="">All</option>';
+        }
+      }
+
+      async function refreshLLMModels() {
+        const endpoint = document.getElementById('endpoint').value;
+        const llmSelect = document.getElementById('llmModel');
+        const currentValue = llmSelect.value;
+
+        try {
+          const response = await fetch(`${endpoint}/models/llms`);
+          const data = await response.json();
+
+          llmSelect.innerHTML = '<option value="">All</option>';
+
+          if (data.models && Array.isArray(data.models)) {
+            data.models.forEach(model => {
+              // Skip embedding models
+              if (model.includes('finetuned/') ||
+                  model.includes('embed') ||
+                  model.includes('sentence-transformers') ||
+                  model.includes('thellert/physbert_cased')) {
+                return;
+              }
+
+              const option = document.createElement('option');
+              option.value = model;
+
+              // Create friendly display name
+              let displayName = model;
+              if (model.startsWith('stanford:')) {
+                displayName = `Stanford ${model.split(':')[1]}`;
+              } else if (model.startsWith('ollama:')) {
+                displayName = `Ollama ${model.split(':')[1]}`;
+              } else if (model.startsWith('openai:')) {
+                displayName = `OpenAI ${model.split(':')[1]}`;
+              }
+
+              option.textContent = displayName;
+              llmSelect.appendChild(option);
+            });
+          }
+
+          // Restore previous selection
+          if (currentValue && data.models?.includes(currentValue)) {
+            llmSelect.value = currentValue;
+          }
+        } catch (error) {
+          console.error('Error loading LLM models:', error);
+          llmSelect.innerHTML = '<option value="">All</option>';
+        }
+      }
+
       async function searchLogs(page = 0) {
+        console.log('searchLogs called with page:', page);
         currentPage = page;
         const endpoint = document.getElementById('endpoint').value;
         const pageSize = parseInt(document.getElementById('pageSize').value);
         
         const searchRequest = {
           query: document.getElementById('searchQuery').value || '*',
-          from_date: document.getElementById('fromDate').value ? 
+          from_date: document.getElementById('fromDate').value ?
             new Date(document.getElementById('fromDate').value).toISOString() : null,
-          to_date: document.getElementById('toDate').value ? 
+          to_date: document.getElementById('toDate').value ?
             new Date(document.getElementById('toDate').value).toISOString() : null,
+          vector_store: document.getElementById('vectorStore').value || null,
           knowledge_base: document.getElementById('knowledgeBase').value || null,
+          embedding_model: document.getElementById('embeddingModel').value || null,
           llm_model: document.getElementById('llmModel').value || null,
+          status: document.getElementById('status').value || null,
+          min_ragas_score: document.getElementById('minScore').value ?
+            parseFloat(document.getElementById('minScore').value) : null,
           size: pageSize,
           from_: page * pageSize
         };
@@ -414,21 +627,37 @@
             body: JSON.stringify(searchRequest)
           });
 
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
           const data = await response.json();
-          
+
           if (data.error) {
             showError(`Search error: ${data.error}`);
+            // Reset results to prevent broken state
+            currentResults = [];
+            totalResults = 0;
+            displayResults();
+            updatePagination();
             return;
           }
 
           totalResults = data.total || 0;
           currentResults = data.hits || [];
-          
+
           displayResults();
           updatePagination();
-          
+
         } catch (error) {
+          console.error('Search error:', error);
           showError(`Network error: ${error.message}`);
+
+          // Reset results to prevent broken state
+          currentResults = [];
+          totalResults = 0;
+          displayResults();
+          updatePagination();
         } finally {
           showLoading(false);
         }
@@ -437,11 +666,36 @@
       function displayResults() {
         const tbody = document.getElementById('logsTableBody');
         const table = document.getElementById('logsTable');
-        
+        const pagination = document.getElementById('pagination');
+
+        // Ensure elements exist
+        if (!tbody || !table) {
+          console.error('Table elements not found');
+          showError('Table display error. Please refresh the page.');
+          return;
+        }
+
         if (currentResults.length === 0) {
           table.style.display = 'none';
-          document.getElementById('results').innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">No logs found matching your criteria.</p>';
+          pagination.style.display = 'none';
+
+          // Show no results message without destroying table structure
+          let noResultsDiv = document.getElementById('noResults');
+          if (!noResultsDiv) {
+            noResultsDiv = document.createElement('div');
+            noResultsDiv.id = 'noResults';
+            noResultsDiv.style.cssText = 'text-align: center; color: #666; padding: 40px;';
+            table.parentNode.insertBefore(noResultsDiv, table);
+          }
+          noResultsDiv.textContent = 'No logs found matching your criteria.';
+          noResultsDiv.style.display = 'block';
           return;
+        }
+
+        // Hide no results message and show table
+        const noResultsDiv = document.getElementById('noResults');
+        if (noResultsDiv) {
+          noResultsDiv.style.display = 'none';
         }
 
         table.style.display = 'table';
@@ -479,10 +733,32 @@
           const responseTime = (log.llm_response?.response_time || 0).toFixed(2);
           const totalTime = (log.performance_metrics?.total_time || 0).toFixed(2);
 
+          // Format embedding model for display
+          let embeddingModelDisplay = log.metadata?.embedding_model || 'N/A';
+          if (embeddingModelDisplay.includes('finetuned/')) {
+            const modelName = embeddingModelDisplay.split('/').pop();
+            embeddingModelDisplay = `${modelName} (FT)`;
+          } else if (embeddingModelDisplay.includes('thellert/physbert_cased')) {
+            embeddingModelDisplay = 'PhysBERT';
+          } else if (embeddingModelDisplay.startsWith('huggingface:')) {
+            embeddingModelDisplay = embeddingModelDisplay.replace('huggingface:', '').split('/').pop();
+          }
+
+          // Format LLM model for display
+          let llmModelDisplay = log.metadata?.llm_model || 'N/A';
+          if (llmModelDisplay.startsWith('stanford:')) {
+            llmModelDisplay = `S:${llmModelDisplay.split(':')[1]}`;
+          } else if (llmModelDisplay.startsWith('ollama:')) {
+            llmModelDisplay = `O:${llmModelDisplay.split(':')[1]}`;
+          } else if (llmModelDisplay.startsWith('openai:')) {
+            llmModelDisplay = `AI:${llmModelDisplay.split(':')[1]}`;
+          }
+
           row.innerHTML = `
             <td>${timestamp}</td>
             <td class="truncate" title="${escapeHtml(log.user_query)}">${escapeHtml(queryText)}</td>
-            <td>${escapeHtml(log.metadata?.llm_model || 'N/A')}</td>
+            <td class="truncate" title="${escapeHtml(log.metadata?.llm_model || 'N/A')}">${escapeHtml(llmModelDisplay)}</td>
+            <td class="truncate" title="${escapeHtml(log.metadata?.embedding_model || 'N/A')}">${escapeHtml(embeddingModelDisplay)}</td>
             <td>${escapeHtml(log.metadata?.knowledge_base || 'N/A')}</td>
             <td>${log.rag_results?.documents_count || 0}</td>
             <td>R:${retrievalTime}s<br>L:${responseTime}s<br>T:${totalTime}s</td>
@@ -634,47 +910,41 @@
           
           statsDiv.style.display = 'block';
           
-          // Update filter dropdowns
-          updateFilterDropdowns(stats);
+          // Refresh filter dropdowns to show any new models/KBs
+          refreshFilterOptions();
           
         } catch (error) {
           showError(`Network error loading stats: ${error.message}`);
         }
       }
 
-      function updateFilterDropdowns(stats) {
-        // Update LLM models dropdown
-        const llmSelect = document.getElementById('llmModel');
-        const currentLlm = llmSelect.value;
-        llmSelect.innerHTML = '<option value="">All</option>';
-        Object.keys(stats.model_counts || {}).forEach(model => {
-          const option = document.createElement('option');
-          option.value = model;
-          option.textContent = `${model} (${stats.model_counts[model]})`;
-          llmSelect.appendChild(option);
-        });
-        if (currentLlm) llmSelect.value = currentLlm;
-
-        // Update KB dropdown
-        const kbSelect = document.getElementById('knowledgeBase');
-        const currentKb = kbSelect.value;
-        kbSelect.innerHTML = '<option value="">All</option>';
-        Object.keys(stats.knowledge_base_counts || {}).forEach(kb => {
-          const option = document.createElement('option');
-          option.value = kb;
-          option.textContent = `${kb} (${stats.knowledge_base_counts[kb]})`;
-          kbSelect.appendChild(option);
-        });
-        if (currentKb) kbSelect.value = currentKb;
-      }
 
       function clearFilters() {
+        // Reset all form fields
         document.getElementById('searchQuery').value = '';
         document.getElementById('fromDate').value = '';
         document.getElementById('toDate').value = '';
+        document.getElementById('vectorStore').value = '';
         document.getElementById('knowledgeBase').value = '';
+        document.getElementById('embeddingModel').value = '';
         document.getElementById('llmModel').value = '';
-        document.getElementById('stats').style.display = 'none';
+        document.getElementById('status').value = '';
+        document.getElementById('minScore').value = '';
+
+        // Hide stats panel
+        const stats = document.getElementById('stats');
+        if (stats) stats.style.display = 'none';
+
+        // Reset page state to clean condition
+        resetPageState();
+
+        // Refresh knowledge bases when vector store is cleared
+        refreshKnowledgeBases();
+
+        // Perform a fresh search with cleared filters
+        setTimeout(() => {
+          searchLogs(0);
+        }, 100);
       }
 
       async function exportLogs(format) {
@@ -687,13 +957,21 @@
         
         const fromDate = document.getElementById('fromDate').value;
         const toDate = document.getElementById('toDate').value;
+        const vectorStore = document.getElementById('vectorStore').value;
         const kb = document.getElementById('knowledgeBase').value;
-        const model = document.getElementById('llmModel').value;
-        
+        const embeddingModel = document.getElementById('embeddingModel').value;
+        const llmModel = document.getElementById('llmModel').value;
+        const status = document.getElementById('status').value;
+        const minScore = document.getElementById('minScore').value;
+
         if (fromDate) params.set('from_date', new Date(fromDate).toISOString());
         if (toDate) params.set('to_date', new Date(toDate).toISOString());
+        if (vectorStore) params.set('vector_store', vectorStore);
         if (kb) params.set('knowledge_base', kb);
-        if (model) params.set('llm_model', model);
+        if (embeddingModel) params.set('embedding_model', embeddingModel);
+        if (llmModel) params.set('llm_model', llmModel);
+        if (status) params.set('status', status);
+        if (minScore) params.set('min_ragas_score', minScore);
         
         try {
           const response = await fetch(`${endpoint}/logs/export?${params}`);
@@ -728,7 +1006,34 @@
       }
 
       function hideError() {
-        document.getElementById('error').style.display = 'none';
+        const errorDiv = document.getElementById('error');
+        if (errorDiv) {
+          errorDiv.style.display = 'none';
+        }
+      }
+
+      function resetPageState() {
+        // Reset all state variables
+        currentPage = 0;
+        totalResults = 0;
+        currentResults = [];
+
+        // Hide all display elements
+        hideError();
+        showLoading(false);
+
+        // Ensure table structure exists
+        const table = document.getElementById('logsTable');
+        const pagination = document.getElementById('pagination');
+        const noResultsDiv = document.getElementById('noResults');
+
+        if (table) table.style.display = 'none';
+        if (pagination) pagination.style.display = 'none';
+        if (noResultsDiv) noResultsDiv.style.display = 'none';
+
+        // Clear table body
+        const tbody = document.getElementById('logsTableBody');
+        if (tbody) tbody.innerHTML = '';
       }
 
       function escapeHtml(text) {
