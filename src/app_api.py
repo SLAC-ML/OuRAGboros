@@ -421,8 +421,12 @@ class LogSearchRequest(BaseModel):
     query: str = "*"
     from_date: Optional[str] = None
     to_date: Optional[str] = None
+    vector_store: Optional[str] = None  # "qdrant", "opensearch", "inmemory", or None for all
     knowledge_base: Optional[str] = None
+    embedding_model: Optional[str] = None
     llm_model: Optional[str] = None
+    status: Optional[str] = None
+    min_ragas_score: Optional[float] = None
     size: int = 100
     from_: int = 0
 
@@ -436,8 +440,12 @@ async def search_query_logs(req: LogSearchRequest):
             query=req.query,
             from_date=req.from_date,
             to_date=req.to_date,
+            vector_store=req.vector_store,
             knowledge_base=req.knowledge_base,
+            embedding_model=req.embedding_model,
             llm_model=req.llm_model,
+            status=req.status,
+            min_ragas_score=req.min_ragas_score,
             size=req.size,
             from_=req.from_
         )

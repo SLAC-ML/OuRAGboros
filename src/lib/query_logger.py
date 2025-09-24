@@ -534,6 +534,10 @@ class QueryLoggerService:
         to_date: Optional[str] = None,
         knowledge_base: Optional[str] = None,
         llm_model: Optional[str] = None,
+        vector_store: Optional[str] = None,
+        embedding_model: Optional[str] = None,
+        status: Optional[str] = None,
+        min_ragas_score: Optional[float] = None,
         size: int = 100,
         from_: int = 0
     ) -> Dict[str, Any]:
@@ -564,7 +568,52 @@ class QueryLoggerService:
                 must_clauses.append({
                     "term": {"metadata.llm_model": llm_model}
                 })
-                
+
+            # Vector store filtering based on use_opensearch and use_qdrant boolean fields
+            if vector_store:
+                if vector_store.lower() == "qdrant":
+                    must_clauses.append({
+                        "term": {"metadata.use_qdrant": True}
+                    })
+                elif vector_store.lower() == "opensearch":
+                    must_clauses.append({
+                        "term": {"metadata.use_opensearch": True}
+                    })
+                elif vector_store.lower() == "inmemory":
+                    # In-memory means both use_opensearch and use_qdrant are false
+                    must_clauses.append({
+                        "bool": {
+                            "must": [
+                                {"term": {"metadata.use_opensearch": False}},
+                                {"term": {"metadata.use_qdrant": False}}
+                            ]
+                        }
+                    })
+
+            if embedding_model:
+                must_clauses.append({
+                    "term": {"metadata.embedding_model": embedding_model}
+                })
+
+            if status:
+                must_clauses.append({
+                    "term": {"status": status}
+                })
+
+            if min_ragas_score is not None:
+                # Filter for records with RAGAS scores above the minimum
+                must_clauses.append({
+                    "bool": {
+                        "should": [
+                            {"range": {"ragas_evaluation.faithfulness": {"gte": min_ragas_score}}},
+                            {"range": {"ragas_evaluation.answer_relevancy": {"gte": min_ragas_score}}},
+                            {"range": {"ragas_evaluation.context_precision": {"gte": min_ragas_score}}},
+                            {"range": {"ragas_evaluation.context_recall": {"gte": min_ragas_score}}}
+                        ],
+                        "minimum_should_match": 1
+                    }
+                })
+
             if from_date or to_date:
                 date_filter = {}
                 if from_date:
