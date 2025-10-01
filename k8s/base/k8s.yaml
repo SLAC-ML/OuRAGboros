@@ -3,10 +3,12 @@
 apiVersion: v1
 data:
   HUGGINGFACE_EMBEDDING_MODEL_DEFAULT: 'thellert/physbert_cased'
+  HUGGINGFACE_FINETUNED_EMBEDDING_MODEL: ''
   OLLAMA_BASE_URL: 'http://ollama:11434'
   OLLAMA_MODEL_DEFAULT: 'ollama:llama3.1'
   OPENAI_API_KEY: ''
   OPENAI_BASE_URL: ''
+  GOOGLE_API_KEY: ''
   STANFORD_API_KEY: ''
   STANFORD_BASE_URL: 'https://aiapi-prod.stanford.edu/v1'
   OPENSEARCH_BASE_URL: 'http://opensearch:9200'
@@ -523,7 +525,7 @@ spec:
                 configMapKeyRef:
                   key: RAGAS_BASE_URL
                   name: kubernetes-env
-          image: slacml/ouragboros:25.09.22
+          image: slacml/ouragboros:25.09.30-2
           name: ouragboros
           resources:
             requests:
