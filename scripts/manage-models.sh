@@ -337,6 +337,11 @@ upload_to_k8s() {
     fi
 
     info "Found pod: $pod_name"
+
+    # Ensure finetuned directory exists in pod
+    info "Ensuring /app/models/finetuned directory exists..."
+    kubectl exec -n ouragboros "$pod_name" -- mkdir -p /app/models/finetuned
+
     info "Copying model files..."
 
     # Copy model directory to pod
