@@ -229,21 +229,25 @@ def get_available_embeddings() -> list[str]:
     # Add all fine-tuned models from directory scanning
     finetuned_models = get_finetuned_models()
     for model_info in finetuned_models:
-        model_identifier = f'huggingface:{model_info["path"]}'
+        # Use just the model name, not the full path, for cleaner identifiers
+        model_identifier = f'huggingface:{model_info["name"]}'
         huggingface_models.insert(0, model_identifier)
 
     # Legacy support: check for single fine-tuned model via environment variable
     # This maintains backward compatibility with existing deployments
-    legacy_finetuned_path = os.path.join(
-        config.huggingface_model_cache_folder,
-        config.huggingface_finetuned_embedding_model
-    )
+    if config.huggingface_finetuned_embedding_model and config.huggingface_finetuned_embedding_model.strip():
+        legacy_finetuned_path = os.path.join(
+            config.huggingface_model_cache_folder,
+            config.huggingface_finetuned_embedding_model
+        )
 
-    if os.path.exists(legacy_finetuned_path):
-        legacy_identifier = f'huggingface:{legacy_finetuned_path}'
-        # Only add if not already included from directory scanning
-        if legacy_identifier not in huggingface_models:
-            huggingface_models.insert(0, legacy_identifier)
+        if os.path.exists(legacy_finetuned_path):
+            # Extract just the model name from the path for consistency
+            legacy_model_name = os.path.basename(legacy_finetuned_path)
+            legacy_identifier = f'huggingface:{legacy_model_name}'
+            # Only add if not already included from directory scanning
+            if legacy_identifier not in huggingface_models:
+                huggingface_models.insert(0, legacy_identifier)
 
     return [*huggingface_models, *ollama_models]
 
@@ -274,11 +278,20 @@ def get_embedding(embedding_model: str) -> Embeddings:
             # Double-check locking pattern
             if embedding_model not in _embedding_cache:
                 model_source, model_name = langchain_utils.parse_model_name(embedding_model)
-                
+
                 # Create embedding instance (only once per model)
                 if model_source == 'huggingface':
+                    # Check if this is a fine-tuned model (exists in finetuned directory)
+                    finetuned_path = os.path.join(config.huggingface_model_cache_folder, 'finetuned', model_name)
+                    if os.path.exists(finetuned_path):
+                        # Use the full path for fine-tuned models
+                        resolved_model_name = finetuned_path
+                    else:
+                        # Use the model name as-is for HuggingFace Hub models
+                        resolved_model_name = model_name
+
                     _embedding_cache[embedding_model] = HuggingFaceEmbeddings(
-                        model_name=model_name,
+                        model_name=resolved_model_name,
                         cache_folder=config.huggingface_model_cache_folder,
                     )
                 else:
