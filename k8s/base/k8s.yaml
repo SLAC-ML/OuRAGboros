@@ -525,7 +525,7 @@ spec:
                 configMapKeyRef:
                   key: RAGAS_BASE_URL
                   name: kubernetes-env
-          image: slacml/ouragboros:25.09.30-2
+          image: slacml/ouragboros:25.10.07
           name: ouragboros
           resources:
             requests:
