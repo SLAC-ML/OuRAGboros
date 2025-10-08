@@ -438,25 +438,13 @@ if kb_to_delete:
                     if st.session_state[ss.StateKey.USE_QDRANT]:
                         import lib.langchain.qdrant as langchain_qdrant
 
-                        current_embedding = st.session_state[
-                            ss.StateKey.EMBEDDING_MODEL
-                        ]
-                        # Delete Qdrant collection
-                        client = langchain_qdrant.get_qdrant_client()
-                        collection_name = langchain_qdrant.get_collection_name(
-                            current_embedding, kb_to_delete
-                        )
-                        try:
-                            client.delete_collection(collection_name=collection_name)
-                        except Exception:
-                            pass  # Collection might not exist
+                        # Delete ALL Qdrant collections for this KB (across all embedding models)
+                        langchain_qdrant.delete_knowledge_base(kb_to_delete)
                     elif st.session_state[ss.StateKey.USE_OPENSEARCH]:
-                        current_embedding = st.session_state[
-                            ss.StateKey.EMBEDDING_MODEL
-                        ]
-                        langchain_opensearch.delete_knowledge_base(
-                            kb_to_delete, current_embedding
-                        )
+                        import lib.langchain.opensearch as langchain_opensearch
+
+                        # Delete ALL OpenSearch indices for this KB (across all embedding models)
+                        langchain_opensearch.delete_knowledge_base(kb_to_delete)
                     else:
                         if "_in_memory_knowledge_bases" in st.session_state:
                             if (
@@ -469,7 +457,9 @@ if kb_to_delete:
 
                     # Switch to default and refresh
                     st.session_state[ss.StateKey.KNOWLEDGE_BASE] = "default"
-                    st.cache_resource.clear()
+                    # Clear BOTH caches to ensure KB list is refreshed
+                    st.cache_data.clear()  # This is where KB list is cached
+                    st.cache_resource.clear()  # Clear resource cache too for good measure
                     if f"_confirm_delete_embed_{kb_to_delete}" in st.session_state:
                         del st.session_state[f"_confirm_delete_embed_{kb_to_delete}"]
                     # Set success message flag to show outside dialog

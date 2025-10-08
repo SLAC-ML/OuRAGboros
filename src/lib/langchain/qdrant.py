@@ -282,6 +282,52 @@ def search_qdrant_documents(
     
     return results
 
+def delete_knowledge_base(knowledge_base: str) -> bool:
+    """
+    Delete a knowledge base by removing ALL Qdrant collections associated with it,
+    across all embedding models.
+
+    :param knowledge_base: The knowledge base name to delete
+    :return: True if at least one collection was deleted, False otherwise
+    """
+    if knowledge_base == "default":
+        raise ValueError("Cannot delete the default knowledge base")
+
+    try:
+        client = get_qdrant_client()
+        collections = client.get_collections().collections
+
+        deleted_count = 0
+        # Find and delete ALL collections for this knowledge base (any embedding model)
+        for collection in collections:
+            # Check if collection belongs to this knowledge base
+            # Format: ouragboros_{clean_model}_{clean_kb}
+            if collection.name.startswith("ouragboros_"):
+                # Extract KB name from collection name
+                remainder = collection.name[11:]  # Remove "ouragboros_" prefix
+
+                # Check if this collection ends with the KB name we want to delete
+                # The KB name is the last part after underscores
+                clean_kb = knowledge_base.replace(":", "_").replace("/", "_")
+                if remainder.endswith(f"_{clean_kb}"):
+                    try:
+                        client.delete_collection(collection_name=collection.name)
+                        deleted_count += 1
+                        print(f"✅ Deleted Qdrant collection: {collection.name}")
+                    except Exception as e:
+                        print(f"⚠️ Failed to delete collection {collection.name}: {e}")
+
+        if deleted_count > 0:
+            print(f"Successfully deleted {deleted_count} collection(s) for KB '{knowledge_base}'")
+            return True
+        else:
+            print(f"No collections found for KB '{knowledge_base}'")
+            return False
+
+    except Exception as e:
+        print(f"Error deleting knowledge base '{knowledge_base}': {e}")
+        return False
+
 def clear_qdrant_cache():
     """Clear all cached Qdrant clients."""
     with _qdrant_clients_lock:

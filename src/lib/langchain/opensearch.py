@@ -187,37 +187,65 @@ def get_available_knowledge_bases() -> list[str]:
         return ["default"]
 
 
-def delete_knowledge_base(knowledge_base: str, embedding_model: str) -> bool:
+def delete_knowledge_base(knowledge_base: str, embedding_model: str = None) -> bool:
     """
-    Deletes a knowledge base by removing its OpenSearch index.
+    Deletes a knowledge base by removing ALL OpenSearch indices associated with it,
+    across all embedding models.
 
     :param knowledge_base: The knowledge base name to delete
-    :param embedding_model: The embedding model used (needed to find correct index)
-    :return: True if successful, False otherwise
+    :param embedding_model: [DEPRECATED] No longer used - kept for backward compatibility
+    :return: True if at least one index was deleted, False otherwise
     """
     if knowledge_base == "default":
         raise ValueError("Cannot delete the default knowledge base")
 
     try:
-        index_name, _ = get_opensearch_index_settings(embedding_model, knowledge_base)
         opensearch_client = OpenSearch([config.opensearch_base_url])
 
-        # Check if index exists
-        if opensearch_client.indices.exists(index=index_name):
-            opensearch_client.indices.delete(index=index_name)
+        # Get all indices
+        all_indices = opensearch_client.cat.indices(index="*", h="index", format="json")
+
+        deleted_count = 0
+        prefix = config.opensearch_index_prefix + "_"
+
+        # Sanitize knowledge base name to match index format
+        kb_safe = knowledge_base.lower().replace(" ", "_").replace("-", "_")
+        kb_safe = "".join(c for c in kb_safe if c.isalnum() or c == "_")
+
+        # Find and delete ALL indices for this knowledge base (any embedding model)
+        for idx_info in all_indices:
+            index_name = idx_info['index']
+
+            # Check if this index belongs to our knowledge base
+            if index_name.startswith(prefix):
+                remaining = index_name[len(prefix):]
+
+                # For non-default KBs, index format is: {prefix}_{kb_safe}_{vector_size}_{model_hash}
+                # Check if KB name appears in the index name
+                if remaining.startswith(kb_safe + "_"):
+                    try:
+                        opensearch_client.indices.delete(index=index_name)
+                        deleted_count += 1
+                        logging.info(f"Deleted OpenSearch index: {index_name}")
+                    except Exception as e:
+                        logging.warning(f"Failed to delete index {index_name}: {e}")
+
+        # Clear all cache entries for this knowledge base (thread-safe)
+        with _opensearch_configs_lock:
+            keys_to_delete = [
+                key for key in _opensearch_configs.keys()
+                if key.endswith(f"#{knowledge_base}")
+            ]
+            for key in keys_to_delete:
+                del _opensearch_configs[key]
+
+        if deleted_count > 0:
             logging.info(
-                f"Successfully deleted knowledge base '{knowledge_base}' (index: {index_name})"
+                f"Successfully deleted {deleted_count} index/indices for KB '{knowledge_base}'"
             )
-            
-            # Clear cache entry (thread-safe)
-            cache_key = f"{embedding_model}#{knowledge_base}"
-            with _opensearch_configs_lock:
-                if cache_key in _opensearch_configs:
-                    del _opensearch_configs[cache_key]
-            
             return True
         else:
-            logging.warning(f"Index {index_name} does not exist")
+            logging.warning(f"No indices found for KB '{knowledge_base}'")
             return False
 
     except Exception as e:

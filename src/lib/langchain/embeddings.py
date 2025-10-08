@@ -171,9 +171,17 @@ def _is_valid_model_directory(model_path: str) -> bool:
             if required_file not in files_in_dir:
                 return False
 
-        # Check for at least one weight file
-        has_weights = any(weight_file in files_in_dir for weight_file in weight_files)
-        if not has_weights:
+        # Check for at least one weight file that is NOT empty
+        has_valid_weights = False
+        for weight_file in weight_files:
+            if weight_file in files_in_dir:
+                weight_path = os.path.join(model_path, weight_file)
+                # Check file exists and is not empty (size > 0)
+                if os.path.exists(weight_path) and os.path.getsize(weight_path) > 0:
+                    has_valid_weights = True
+                    break
+
+        if not has_valid_weights:
             return False
 
         return True
