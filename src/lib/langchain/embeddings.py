@@ -109,42 +109,58 @@ def clear_embedding_cache() -> None:
         _in_memory_vector_stores.clear()
 
 
-def get_finetuned_models() -> list[dict]:
+def get_local_custom_models() -> list[dict]:
     """
-    Discover fine-tuned models in the finetuned directory.
+    Discover all local custom models by scanning subdirectories under models/ folder.
+    Each subdirectory becomes a namespace (e.g., models/finetuned/my-model → finetuned/my-model).
 
-    :return: List of model info dictionaries with 'path', 'name', and 'display_name'
+    :return: List of model info dictionaries with 'path', 'namespace', 'name', and 'display_name'
     """
-    finetuned_models = []
-    finetuned_dir = os.path.join(config.huggingface_model_cache_folder, 'finetuned')
+    local_models = []
+    models_base_dir = config.huggingface_model_cache_folder
 
-    if not os.path.exists(finetuned_dir):
-        return finetuned_models
+    if not os.path.exists(models_base_dir):
+        return local_models
 
     try:
-        for model_name in os.listdir(finetuned_dir):
-            model_path = os.path.join(finetuned_dir, model_name)
-
-            # Skip hidden files and non-directories
-            if model_name.startswith('.') or not os.path.isdir(model_path):
+        # Scan all subdirectories in models/ folder (each becomes a namespace)
+        for namespace_folder in os.listdir(models_base_dir):
+            # Skip hidden files and HuggingFace cache directories
+            if namespace_folder.startswith('.') or namespace_folder.startswith('models--'):
                 continue
 
-            # Validate model directory (check for required files)
-            if _is_valid_model_directory(model_path):
-                # Create friendly display name
-                display_name = _get_model_display_name(model_name, model_path)
+            namespace_path = os.path.join(models_base_dir, namespace_folder)
 
-                finetuned_models.append({
-                    'path': model_path,
-                    'name': model_name,
-                    'display_name': display_name
-                })
+            # Only process directories
+            if not os.path.isdir(namespace_path):
+                continue
+
+            # Scan for models within this namespace folder
+            for model_name in os.listdir(namespace_path):
+                model_path = os.path.join(namespace_path, model_name)
+
+                # Skip hidden files and non-directories
+                if model_name.startswith('.') or not os.path.isdir(model_path):
+                    continue
+
+                # Validate model directory (check for required files)
+                if _is_valid_model_directory(model_path):
+                    # Create friendly display name
+                    display_name = _get_model_display_name(model_name, model_path)
+
+                    local_models.append({
+                        'path': model_path,
+                        'namespace': namespace_folder,
+                        'name': model_name,
+                        'namespaced_name': f'{namespace_folder}/{model_name}',
+                        'display_name': f'{namespace_folder.title()}: {display_name}'
+                    })
 
     except Exception as e:
-        print(f"Warning: Error scanning finetuned models directory: {e}")
+        print(f"Warning: Error scanning local custom models directory: {e}")
 
-    # Sort by name for consistent ordering
-    return sorted(finetuned_models, key=lambda x: x['name'])
+    # Sort by namespace first, then by name
+    return sorted(local_models, key=lambda x: (x['namespace'], x['name']))
 
 
 def _is_valid_model_directory(model_path: str) -> bool:
@@ -234,11 +250,11 @@ def get_available_embeddings() -> list[str]:
         f'huggingface:{config.huggingface_default_embedding_model}',
     ]
 
-    # Add all fine-tuned models from directory scanning
-    finetuned_models = get_finetuned_models()
-    for model_info in finetuned_models:
-        # Use just the model name, not the full path, for cleaner identifiers
-        model_identifier = f'huggingface:{model_info["name"]}'
+    # Add all local custom models from directory scanning (with namespace prefixes)
+    local_models = get_local_custom_models()
+    for model_info in local_models:
+        # Use namespace/model format (e.g., huggingface:finetuned/my-model)
+        model_identifier = f'huggingface:{model_info["namespaced_name"]}'
         huggingface_models.insert(0, model_identifier)
 
     # Legacy support: check for single fine-tuned model via environment variable
@@ -250,12 +266,27 @@ def get_available_embeddings() -> list[str]:
         )
 
         if os.path.exists(legacy_finetuned_path):
-            # Extract just the model name from the path for consistency
-            legacy_model_name = os.path.basename(legacy_finetuned_path)
-            legacy_identifier = f'huggingface:{legacy_model_name}'
-            # Only add if not already included from directory scanning
-            if legacy_identifier not in huggingface_models:
-                huggingface_models.insert(0, legacy_identifier)
+            # Check if this path matches a directory-scanned model
+            # If so, skip to avoid duplicates (directory scanning takes precedence)
+            is_duplicate = any(
+                model_info['path'] == legacy_finetuned_path
+                for model_info in local_models
+            )
+
+            if not is_duplicate:
+                # For legacy env var models, extract namespace if present
+                # Format could be "finetuned/model" or just "model"
+                legacy_model_path = config.huggingface_finetuned_embedding_model
+                if '/' in legacy_model_path:
+                    # Already has namespace
+                    legacy_identifier = f'huggingface:{legacy_model_path}'
+                else:
+                    # No namespace, use just the model name for backward compatibility
+                    legacy_model_name = os.path.basename(legacy_finetuned_path)
+                    legacy_identifier = f'huggingface:{legacy_model_name}'
+
+                if legacy_identifier not in huggingface_models:
+                    huggingface_models.insert(0, legacy_identifier)
 
     return [*huggingface_models, *ollama_models]
 
@@ -289,14 +320,36 @@ def get_embedding(embedding_model: str) -> Embeddings:
 
                 # Create embedding instance (only once per model)
                 if model_source == 'huggingface':
-                    # Check if this is a fine-tuned model (exists in finetuned directory)
-                    finetuned_path = os.path.join(config.huggingface_model_cache_folder, 'finetuned', model_name)
-                    if os.path.exists(finetuned_path):
-                        # Use the full path for fine-tuned models
-                        resolved_model_name = finetuned_path
+                    # Check if this is a local custom model (format: namespace/model-name)
+                    # e.g., "finetuned/my-model", "custom/bert-variant", etc.
+                    if '/' in model_name:
+                        # Parse namespace and model name
+                        namespace, model_base_name = model_name.split('/', 1)
+                        local_model_path = os.path.join(
+                            config.huggingface_model_cache_folder,
+                            namespace,
+                            model_base_name
+                        )
+
+                        if os.path.exists(local_model_path):
+                            # Use the full path for local custom models
+                            resolved_model_name = local_model_path
+                        else:
+                            # Fallback: treat as HuggingFace Hub model (e.g., "sentence-transformers/all-MiniLM-L6-v2")
+                            resolved_model_name = model_name
                     else:
-                        # Use the model name as-is for HuggingFace Hub models
-                        resolved_model_name = model_name
+                        # Legacy support: check old finetuned directory without namespace
+                        legacy_finetuned_path = os.path.join(
+                            config.huggingface_model_cache_folder,
+                            'finetuned',
+                            model_name
+                        )
+                        if os.path.exists(legacy_finetuned_path):
+                            # Use the full path for legacy fine-tuned models
+                            resolved_model_name = legacy_finetuned_path
+                        else:
+                            # Use the model name as-is for HuggingFace Hub models
+                            resolved_model_name = model_name
 
                     _embedding_cache[embedding_model] = HuggingFaceEmbeddings(
                         model_name=resolved_model_name,
