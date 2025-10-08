@@ -2,6 +2,24 @@
 
 This directory contains utility scripts for local development, deployment, and debugging OuRAGboros.
 
+## 📋 Script Overview
+
+**Essential Scripts:**
+- 🚀 `local-dev.sh` - Local development with Docker Compose
+- 🐳 `build-and-push.sh` - Build and push Docker images
+- 🎯 `deploy-image.sh` - **New!** Automated k8s deployment
+- 🔍 `opensearch-browser.sh` - Knowledge base inspection
+- 🤖 `manage-models.sh` - Fine-tuned model management
+
+**Testing Scripts:**
+- 🧪 `test-local.sh` - Local development testing
+- 🧪 `test-embedding-cache.sh` - Embedding cache testing
+
+**Legacy/Specialized:**
+- ⚠️ `deploy-qdrant.sh` - Superseded by `deploy-image.sh`
+
+---
+
 ## 🚀 Local Development
 
 ### `local-dev.sh`
@@ -46,7 +64,7 @@ This directory contains utility scripts for local development, deployment, and d
 - OpenSearch: http://localhost:9200
 - Ollama: http://localhost:11434
 
-## 🐳 Docker Image Management
+## 🐳 Docker & Deployment
 
 ### `build-and-push.sh`
 
@@ -54,17 +72,91 @@ Builds and pushes Docker images with date-based tagging.
 
 **Usage:**
 ```bash
-# Build with today's date (e.g., slacml/ouragboros:25.08.26)
+# Build with today's date (e.g., slacml/ouragboros:25.10.07)
 ./scripts/build-and-push.sh
 
 # Build with suffix for multiple builds in same day
-./scripts/build-and-push.sh 2  # Creates slacml/ouragboros:25.08.26-2
+./scripts/build-and-push.sh 2  # Creates slacml/ouragboros:25.10.07-2
 ```
 
 **Features:**
 - Automatic date-based tagging (`YY.MM.DD` format)
 - Support for build suffixes (`-1`, `-2`, etc.)
 - Provides deployment instructions after successful build
+
+### `deploy-image.sh` ⭐ **New!**
+
+**One-command Kubernetes deployment automation.** Updates k8s config and deploys new image to your cluster.
+
+**Quick Start:**
+```bash
+# Deploy a new image (after pushing to Docker Hub)
+./scripts/deploy-image.sh 25.10.07-2
+```
+
+**Advanced Usage:**
+```bash
+# Preview changes without applying
+./scripts/deploy-image.sh 25.10.07-2 --dry-run
+
+# Skip image verification (useful if just pushed)
+./scripts/deploy-image.sh 25.10.07-2 --skip-verify
+
+# Update config but don't restart deployment
+./scripts/deploy-image.sh 25.10.07-2 --no-restart
+
+# Show help
+./scripts/deploy-image.sh --help
+```
+
+**What it does:**
+1. ✅ **Verifies image exists** on Docker Hub (unless `--skip-verify`)
+2. ✅ **Auto-updates** `k8s/base/k8s.yaml` with new image tag
+3. ✅ **Creates backup** of k8s config (`.bak` file)
+4. ✅ **Applies changes** to namespace `ouragboros`
+5. ✅ **Restarts deployment** to pull new image
+6. ✅ **Waits for rollout** to complete (5 min timeout)
+7. ✅ **Verifies** new image is running
+8. ✅ **Shows pod status** after deployment
+
+**Features:**
+- 🎨 Colorful progress indicators
+- 🔍 Docker Hub image verification
+- 💾 Automatic config backups
+- ⏱️ Smart timeout handling
+- 🛡️ Safety checks (kubectl, namespace, files)
+- 📊 Pod status display
+
+**Example Output:**
+```
+╔════════════════════════════════════════════════════════╗
+║  OuRAGboros Kubernetes Deployment Automation          ║
+╚════════════════════════════════════════════════════════╝
+
+Image:      slacml/ouragboros:25.10.07-2
+Namespace:  ouragboros
+K8s File:   k8s/base/k8s.yaml
+
+📋 Checking prerequisites...
+✓ kubectl installed
+✓ K8s file found
+✓ Namespace 'ouragboros' exists
+
+🔍 Verifying image exists on Docker Hub...
+✓ Image found on Docker Hub
+
+📝 Updating k8s/base/k8s.yaml...
+✓ Created backup: k8s/base/k8s.yaml.bak
+✓ Updated image tag
+
+🚀 Applying changes to cluster...
+✓ Configuration applied
+
+🔄 Restarting deployment...
+✓ Rollout completed successfully
+
+✅ Deployment Complete!
+```
 
 ## 🔍 OpenSearch Database Browser
 
@@ -196,11 +288,33 @@ Comprehensive utility for managing fine-tuned embedding models in both local and
 - ✅ **Validation**: Ensure models have required files (config.json, weights)
 - ✅ **Multi-format support**: Handle .bin and .safetensors weight files
 
-## 🚀 Deployment Utilities
+## 🧪 Testing & Debugging
+
+### `test-local.sh`
+
+Basic local development testing script. Validates Docker services and basic functionality.
+
+**Usage:**
+```bash
+./scripts/test-local.sh
+```
+
+### `test-embedding-cache.sh`
+
+Tests embedding caching functionality to verify performance optimizations.
+
+**Usage:**
+```bash
+./scripts/test-embedding-cache.sh
+```
+
+## 📦 Legacy/Specialized Scripts
 
 ### `deploy-qdrant.sh`
 
-Kubernetes deployment script for OuRAGboros with Qdrant vector store configuration.
+**Status:** ⚠️ **Superseded by `deploy-image.sh`**
+
+Legacy Kubernetes deployment script for Qdrant configuration. For new deployments, use `deploy-image.sh` instead.
 
 **Usage:**
 ```bash
@@ -209,10 +323,10 @@ Kubernetes deployment script for OuRAGboros with Qdrant vector store configurati
 
 **Features:**
 - Automatic namespace creation
-- Stanford AI secret deployment (if available)
-- Qdrant overlay configuration deployment
+- Stanford AI secret deployment
+- Qdrant overlay configuration
 
-> **Note**: For comprehensive benchmarking and performance testing tools, see the `benchmark/` directory.
+> **💡 Tip:** For regular deployments, use the newer `deploy-image.sh` which provides better automation and verification.
 
 ---
 
@@ -226,11 +340,16 @@ Kubernetes deployment script for OuRAGboros with Qdrant vector store configurati
 
 **Production Deployment Workflow:**
 1. Build new image: `./scripts/build-and-push.sh [build-number]`
-2. Update `k8s/base/k8s.yaml` with new image tag
-3. Deploy: `kubectl apply -n ouragboros -k k8s/base`
+2. Deploy to k8s: `./scripts/deploy-image.sh 25.10.07-2` ⭐ **New automated deployment!**
+3. Verify deployment: Check pod status and image version
 4. Inspect knowledge bases: `./scripts/opensearch-browser.sh kbs`
 5. Check entry counts: `./scripts/opensearch-browser.sh count [kb_name]`
 6. Test search: `./scripts/opensearch-browser.sh search "query" [kb_name]`
+
+**Legacy Deployment (manual):**
+1. Update `k8s/base/k8s.yaml` with new image tag
+2. Deploy: `kubectl apply -n ouragboros -k k8s/base`
+3. Restart: `kubectl rollout restart deployment/ouragboros -n ouragboros`
 
 **Knowledge Base Management:**
 - **Create/Delete**: Use Streamlit UI to create and delete knowledge bases
